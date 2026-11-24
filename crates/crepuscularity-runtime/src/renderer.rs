@@ -973,6 +973,7 @@ fn include_context(ctx: &TemplateContext, path: &std::path::Path) -> TemplateCon
     child.virtual_files = Arc::clone(&ctx.virtual_files);
     for key in [
         "crepus_target",
+        "crepus_reduced_motion",
         "is_gui",
         "is_tui",
         "is_web",
@@ -1837,30 +1838,33 @@ mod identity_tests {
 
     #[test]
     fn reduced_motion_finishes_gpui_directives_without_an_animation_wrapper() {
-        let nodes = crepuscularity_core::parse_template(
-            "div animate:fade-out={100ms linear}\ndiv animate:opacity={100ms linear repeat}",
-        )
-        .unwrap();
         let mut ctx = TemplateContext::new();
         ctx.set("crepus_reduced_motion", true);
-        let mut elements =
-            render_siblings_with_ctx(&nodes, &ctx, "root", None, &mut IncludeCache::default());
-        assert_eq!(
-            elements[0]
-                .downcast_mut::<gpui::Div>()
-                .unwrap()
-                .style()
-                .opacity,
-            Some(0.0)
-        );
-        assert_eq!(
-            elements[1]
-                .downcast_mut::<gpui::Div>()
-                .unwrap()
-                .style()
-                .opacity,
-            Some(1.0)
-        );
+        Arc::make_mut(&mut ctx.virtual_files).extend([
+            (
+                "fading.crepus".into(),
+                "div animate:fade-out={100ms linear}".into(),
+            ),
+            (
+                "named.crepus".into(),
+                "--- Card\ndiv animate:opacity={100ms linear repeat}".into(),
+            ),
+        ]);
+        for source in [
+            "div animate:fade-out={100ms linear}\ndiv animate:opacity={100ms linear repeat}",
+            "include fading.crepus\ninclude named.crepus#Card",
+        ] {
+            let nodes = crepuscularity_core::parse_template(source).unwrap();
+            let mut elements =
+                render_siblings_with_ctx(&nodes, &ctx, "root", None, &mut IncludeCache::default());
+            for (element, opacity) in elements.iter_mut().zip([0.0, 1.0]) {
+                assert_eq!(
+                    element.downcast_mut::<gpui::Div>().unwrap().style().opacity,
+                    Some(opacity),
+                    "{source}"
+                );
+            }
+        }
     }
 
     #[test]

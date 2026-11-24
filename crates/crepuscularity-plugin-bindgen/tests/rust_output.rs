@@ -87,6 +87,8 @@ const _: unsafe extern "C" fn(*mut CrepusSession, *const c_char) -> i32 = crepus
 const _: unsafe extern "C" fn(*mut CrepusSession, *const c_char) -> i32 = crepus_session_set_files_json;
 const _: unsafe extern "C" fn(*mut CrepusSession, *const c_char) -> i32 = crepus_session_set_context_json;
 const _: unsafe extern "C" fn(*mut CrepusSession, *const c_char) -> i32 = crepus_session_apply_context_patch_json;
+const _: unsafe extern "C" fn(*mut CrepusSession, *const c_char) -> i32 = crepus_session_animate_json;
+const _: unsafe extern "C" fn(*mut CrepusSession, u64, i32) -> i32 = crepus_session_tick_animations;
 const _: unsafe extern "C" fn(*mut CrepusSession, Option<unsafe extern "C" fn(*const c_char, *mut c_void)>, *mut c_void) -> i32 = crepus_session_set_event_callback;
 const _: unsafe extern "C" fn(*mut CrepusSession) -> *mut c_char = crepus_session_render_ir_json;
 const _: unsafe extern "C" fn(*mut CrepusSession, *const c_char) -> *mut c_char = crepus_session_dispatch_event_json;
@@ -125,7 +127,7 @@ const _: unsafe extern "C" fn(*mut c_char) = crepus_string_free;
 
 #[test]
 fn generated_rust_compiles_and_matches_every_abi_function_signature() {
-    assert_rust_output(&repo_root(), None, 13, "");
+    assert_rust_output(&repo_root(), None, 15, "");
 }
 
 #[test]
@@ -158,7 +160,7 @@ fn overridden_header_preserves_typedefs_and_additional_functions() {
     assert_rust_output(
         &root,
         Some(header.clone()),
-        14,
+        16,
         "const _: unsafe extern \"C\" fn(*const c_void) -> *const c_char = crepus_extra;",
     );
 
@@ -246,7 +248,7 @@ fn rust_keyword_functions_preserve_raw_identifiers_and_const_signatures() {
     assert_rust_output(
         &root,
         Some(header),
-        15,
+        17,
         "const _: unsafe extern \"C\" fn(i32) -> i32 = r#match;\nconst _: unsafe extern \"C\" fn(*const c_void) -> *const c_char = r#async;",
     );
 }

@@ -48,6 +48,7 @@ For GPUI, native IR, and RGB565 templates, `div class="w-[{width}px]"` consumes 
 | Web, Tauri webview, browser extensions | WASM `MotionValue` | Use `requestAnimationFrame` and `matchMedia('(prefers-reduced-motion: reduce)')`. A service worker has no visual frame loop. |
 | Static HTML and SSR | `AnimatedValues` and the web renderer | Emit a chosen snapshot. SSR does not run a client clock. |
 | SwiftUI, Compose, Flutter View IR consumers | C ABI sessions or Rust `AnimatedValues`, followed by new IR | Deliver each sampled IR to the shell. A fixed JSON fixture cannot animate itself. |
+| Experimental ZPUI Zig adapter | C ABI sessions through generated Zig imports, followed by new IR | Replace the retained document through the host's frame lifecycle, then notify the ZPUI view. |
 | Ratatui terminal | `AnimatedValues` and `Template::context_mut()` | Tick on the terminal event loop, then draw. Choose a user preference for reduced motion. |
 | RGB565 with `std` | `AnimatedValues` and the embedded context | Tick before layout and framebuffer paint. Flush the frame to the panel. |
 | RGB565 without `std` | `crepuscularity_embedded::animation::MotionValue` | Supply firmware ticks. Apply sampled dimensions to a compiled document before layout and paint. |

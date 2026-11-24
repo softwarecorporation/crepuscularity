@@ -67,7 +67,7 @@ using (var context = new Utf8("{}"))
     Require(Abi.crepus_session_set_context_json(IntPtr.Zero, context.Pointer) == -1, "null session error");
 Require(Take(Abi.crepus_last_error()).Length > 0, "global error");
 Require(Abi.crepus_last_error() == IntPtr.Zero, "global error consumed");
-Console.WriteLine("PASS generated C# ABI: all 13 exports, UTF-8 ownership, context/files/components, rooted nullable Cdecl callback/userdata and signed errors");
+Console.WriteLine("PASS generated C# ABI: 13 existing session/string exports, UTF-8 ownership, context/files/components, rooted nullable Cdecl callback/userdata and signed errors");
 
 static void Require(bool condition, string message) {
     if (!condition) throw new InvalidOperationException(message);

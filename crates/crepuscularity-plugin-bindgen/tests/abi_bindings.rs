@@ -12,6 +12,8 @@ const NAMES: &[&str] = &[
     "crepus_session_set_files_json",
     "crepus_session_set_context_json",
     "crepus_session_apply_context_patch_json",
+    "crepus_session_animate_json",
+    "crepus_session_tick_animations",
     "crepus_session_set_event_callback",
     "crepus_session_render_ir_json",
     "crepus_session_dispatch_event_json",
@@ -75,7 +77,8 @@ fn canonical_inventory_and_types_are_complete() {
                 assert!(code.contains("extern int crepus_session_set_event_callback"));
                 assert!(code.contains("CrepusEventCallback? callback"));
                 assert!(code.contains("extern IntPtr crepus_session_render_ir_json"));
-                assert_eq!(code.matches("CallingConvention.Cdecl").count(), 14);
+                assert!(code.contains("ulong now_ms, int reduced_motion"));
+                assert_eq!(code.matches("CallingConvention.Cdecl").count(), NAMES.len() + 1);
             }
             "v" => assert!(code.contains("fn C.crepus_session_set_component(session &C.CrepusSession, component_utf8 &char) i32")),
             _ => {}
@@ -221,6 +224,8 @@ const _: unsafe extern "C" fn(*mut CrepusSession, *const c_char) -> i32 = crepus
 const _: unsafe extern "C" fn(*mut CrepusSession, *const c_char) -> i32 = crepus_session_set_files_json;
 const _: unsafe extern "C" fn(*mut CrepusSession, *const c_char) -> i32 = crepus_session_set_context_json;
 const _: unsafe extern "C" fn(*mut CrepusSession, *const c_char) -> i32 = crepus_session_apply_context_patch_json;
+const _: unsafe extern "C" fn(*mut CrepusSession, *const c_char) -> i32 = crepus_session_animate_json;
+const _: unsafe extern "C" fn(*mut CrepusSession, u64, i32) -> i32 = crepus_session_tick_animations;
 const _: unsafe extern "C" fn(*mut CrepusSession, CrepusEventCallback, *mut c_void) -> i32 = crepus_session_set_event_callback;
 const _: unsafe extern "C" fn(*mut CrepusSession) -> *mut c_char = crepus_session_render_ir_json;
 const _: unsafe extern "C" fn(*mut CrepusSession, *const c_char) -> *mut c_char = crepus_session_dispatch_event_json;
@@ -379,6 +384,15 @@ fn main() {{ unsafe {{
     assert_eq!(crepus_session_set_event_callback(session, None, std::ptr::null_mut()), 0);
     assert!(owned(crepus_session_dispatch_event_json(session, event.as_ptr())).contains("Count 2"));
     assert_eq!(calls, 1);
+    let numeric = CString::new("{{\"count\":2}}").unwrap();
+    assert_eq!(crepus_session_set_context_json(session, numeric.as_ptr()), 0);
+    let animation = CString::new("{{\"key\":\"count\",\"target\":82,\"durationMs\":200,\"easing\":\"linear\",\"nowMs\":1099511627776,\"reducedMotion\":false}}").unwrap();
+    assert_eq!(crepus_session_animate_json(session, animation.as_ptr()), 0);
+    assert_eq!(crepus_session_tick_animations(session, (1_u64 << 40) + 50, 0), 1);
+    assert!(owned(crepus_session_render_ir_json(session)).contains("Count 22"));
+    assert_eq!(crepus_session_tick_animations(session, (1_u64 << 40) + 60, 1), 0);
+    assert!(owned(crepus_session_render_ir_json(session)).contains("Count 82"));
+    assert_eq!(crepus_session_tick_animations(session, (1_u64 << 40) + 70, 0), 0);
     crepus_session_free(session);
 }} }}
 "#

@@ -27,6 +27,10 @@ public static class EquilibriumImports
     [DllImport("crepuscularity_abi", CallingConvention = CallingConvention.Cdecl)]
     public static extern int crepus_session_apply_context_patch_json(IntPtr session, IntPtr context_json_utf8);
     [DllImport("crepuscularity_abi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern int crepus_session_animate_json(IntPtr session, IntPtr animation_json_utf8);
+    [DllImport("crepuscularity_abi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern int crepus_session_tick_animations(IntPtr session, ulong now_ms, int reduced_motion);
+    [DllImport("crepuscularity_abi", CallingConvention = CallingConvention.Cdecl)]
     public static extern int crepus_session_set_event_callback(IntPtr session, CrepusEventCallback? callback, IntPtr userdata);
     [DllImport("crepuscularity_abi", CallingConvention = CallingConvention.Cdecl)]
     public static extern IntPtr crepus_session_render_ir_json(IntPtr session);
