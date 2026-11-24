@@ -88,6 +88,14 @@ amp orb service start animation-preview --command 'python3 -m http.server "$PORT
 
 The command returns the public portal URL. The WASM build regenerates the existing checked-in npm and legacy bindings.
 
+## Native GPUI example
+
+Run `cargo run --locked -p crepuscularity-gpui --example animated_disclosure` on macOS. On Linux, also select a platform backend, for example `--features x11`.
+
+The example samples `AnimatedValues` during native render callbacks and calls `Window::request_animation_frame` only while a transition is active. The disclosure's height is a real template binding, not a second animation implementation. Pointer clicks can reverse a transition. Space toggles immediately, and R or the app control changes reduced motion, including during an active transition. The frame counter stops changing when idle.
+
+This example uses GPUI's application-level `reduce_motion` policy. It does not query operating-system accessibility settings. A production host must keep that policy in sync with the user's current OS or application preference. Testing this Mac example does not establish Windows or Linux presentation coverage.
+
 ## Verification commands
 
 ```sh
