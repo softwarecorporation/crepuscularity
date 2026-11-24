@@ -293,6 +293,18 @@ jobs:
       - name: Test generated native action queues
         run: python3 scripts/test-native-action-queue.py
 
+      - name: Test native shell color round-trips
+        run: |
+          cargo build --locked -p crepuscularity-cli --no-default-features
+          python3 scripts/test-native-shell-colors.py
+
+      - name: Test managed C# session lifetime
+        env:
+          DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror -dynamiclib scripts/fixtures/csharp-abi-lifetime/lifetime_shim.c -o "$RUNNER_TEMP/liblifetime.dylib"
+          dotnet run --project scripts/fixtures/csharp-abi-lifetime -- "$RUNNER_TEMP/liblifetime.dylib"
+
       - name: Test generated C# ABI contracts
         env:
           DOTNET_CLI_TELEMETRY_OPTOUT: "1"
