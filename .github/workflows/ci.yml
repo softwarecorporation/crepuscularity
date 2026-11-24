@@ -64,7 +64,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libfontconfig1-dev
+          sudo apt-get install -y -qq libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libx11-xcb-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libfontconfig1-dev
 
       - name: WASM target and wasm-bindgen (crepus web build integration tests)
         run: |
@@ -110,6 +110,7 @@ jobs:
         run: |
           cargo test --locked -p crepuscularity-core -p crepuscularity-native --all-features
           cargo test --locked -p crepuscularity-runtime --all-features
+          cargo test --locked -p crepuscularity-gpui --all-features
           cargo test --locked -p crepuscularity-embedded -p crepuscularity-lvgl --features crepuscularity-embedded/macros,crepuscularity-embedded/mipidsi
           cargo test --locked -p crepuscularity-embedded --no-default-features --features macros,mipidsi
 
@@ -288,6 +289,16 @@ jobs:
 
       - name: Test Swift transport contracts
         run: swift test --package-path plugins
+
+      - name: Test generated native action queues
+        run: python3 scripts/test-native-action-queue.py
+
+      - name: Test generated C# ABI contracts
+        env:
+          DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+        run: |
+          cargo build --locked -p crepuscularity-abi
+          dotnet run --project scripts/fixtures/csharp-generated-abi -- "$PWD/target/debug/libcrepuscularity_abi.dylib"
 
       - name: Run plugin smoke
         run: bash scripts/plugin-smoke.sh
