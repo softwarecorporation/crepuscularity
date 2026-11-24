@@ -88,6 +88,25 @@ amp orb service start animation-preview --command 'python3 -m http.server "$PORT
 
 The command returns the public portal URL. The WASM build regenerates the existing checked-in npm and legacy bindings.
 
+## Installed Chromium extension
+
+Run `bash examples/animation-extension/build.sh`, then load `target/animation-extension` with **Load unpacked** on `chrome://extensions`. Click the extension's toolbar action or open its **Extension options**. The options tab runs the same disclosure and WASM module as the browser example, at a `chrome-extension://` origin.
+
+The MV3 package has no permissions, content scripts, remote code, or web-accessible resources. Its CSP permits local WASM compilation with `'wasm-unsafe-eval'` but does not allow inline JavaScript or general JavaScript eval. The service worker only opens the options page. The visible document owns the frame loop.
+
+With agent-browser installed, a headless Chromium session can load the unpacked extension:
+
+```sh
+export AGENT_BROWSER_SESSION=motion-extension
+export AGENT_BROWSER_EXTENSIONS="$PWD/target/animation-extension"
+export AGENT_BROWSER_ARGS=--headless=new
+agent-browser open chrome://extensions/
+```
+
+Open the installed extension's **Extension options** in that session, then run `bun scripts/test-extension-motion.mjs motion-extension`. The test rejects HTTP pages. It uses trusted CDP input and checks intermediate and reversed WASM frames, exact endpoints, keyboard activation, explicit and emulated browser reduced-motion changes, resize, and zero scheduled callbacks at idle. It also dispatches `pagehide` during motion to check cancellation. Close the session with `agent-browser close` afterward.
+
+Browser media emulation verifies the `matchMedia` integration, not an operating-system accessibility setting. This package does not establish Firefox or Safari extension coverage, Android runtime coverage, or automatic animation in other extension templates.
+
 ## Native GPUI example
 
 Run `cargo run --locked -p crepuscularity-gpui --example animated_disclosure` on macOS. On Linux, also select a platform backend, for example `--features x11`.

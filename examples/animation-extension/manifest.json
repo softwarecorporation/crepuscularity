@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Crepuscularity motion host",
+  "version": "0.1.0",
+  "description": "A disclosure driven by the shared Rust animation engine, with live reduced-motion policy.",
+  "action": { "default_title": "Open motion example" },
+  "background": { "service_worker": "background.js" },
+  "options_ui": { "page": "examples/animation-browser/index.html", "open_in_tab": true },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'none'"
+  }
+}
