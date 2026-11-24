@@ -101,6 +101,15 @@ jobs:
       - name: Run tests
         run: cargo test --locked --workspace
 
+      - name: Test terminal motion host
+        run: cargo test --locked -p crepuscularity-tui --example animated_disclosure
+
+      - name: Test terminal motion through a PTY
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get install -y -qq tmux
+          python3 scripts/test-terminal-motion.py
+
       - name: Test CLI with all features
         run: cargo test --locked --package crepuscularity-cli --features full
         if: matrix.os == 'ubuntu-latest'
@@ -300,6 +309,11 @@ jobs:
 
       - name: Test fresh Swift scaffold queued edits
         run: python3 scripts/test-native-swift-scaffold.py
+
+      - name: Test SwiftUI shared-engine display callbacks and build simulator host
+        run: |
+          bash examples/animation-swiftui/build.sh macos --check
+          bash examples/animation-swiftui/build.sh simulator
 
       - name: Test managed C# session lifetime
         env:

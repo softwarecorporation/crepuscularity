@@ -96,6 +96,26 @@ The example samples `AnimatedValues` during native render callbacks and calls `W
 
 This example uses GPUI's application-level `reduce_motion` policy. It does not query operating-system accessibility settings. A production host must keep that policy in sync with the user's current OS or application preference. Testing this Mac example does not establish Windows or Linux presentation coverage.
 
+## SwiftUI host
+
+`examples/animation-swiftui` runs a disclosure on macOS 14 or later and iOS 17 or later. It imports the canonical C header and links the real Rust session library. Each displayed height comes from sampled View IR, not a SwiftUI animation curve.
+
+On a Mac with Xcode and Rust installed, run `bash examples/animation-swiftui/build.sh macos`, then open the printed `Motion.app` path. For an iOS simulator, run `bash examples/animation-swiftui/build.sh simulator`, install the printed app with `xcrun simctl install booted <app-path>`, then run `xcrun simctl launch booted dev.crepuscularity.motion`. These builds use ad-hoc signing and do not upload or release anything.
+
+The host confines session calls to the main actor. A display link runs only while motion is active and renders the final inactive sample before invalidating itself. SwiftUI's live `accessibilityReduceMotion` environment value settles motion immediately, including when the display link is idle. Leaving the active scene or hiding the view settles motion and stops callbacks. The session survives a temporary disappearance and is freed when its owner is released. ABI errors stop callbacks and appear in the UI.
+
+`bash examples/animation-swiftui/build.sh macos --check` executes the real ABI and native display callbacks. It checks intermediate values, interruption, live policy changes, idle frame counts, suspension, and teardown. This command needs a Mac display session. It does not test the operating-system preference itself. Verify that path by changing **Accessibility → Motion → Reduce motion** while the app runs. The frame counter must stop at idle, and switching reduced motion off must not replay a completed transition.
+
+This is a runnable session-ABI host. It does not change the separate generated `crepus_mobile_*` scaffold bridge or add automatic scheduling to every SwiftUI shell.
+
+## Terminal host
+
+Run `cargo run --locked -p crepuscularity-tui --example animated_disclosure`. Enter or a left click animates the disclosure and can reverse it mid-transition. Space toggles immediately. R changes the reduced-motion policy, including during active motion. Q or Escape restores the terminal and exits. Pass `-- --reduce-motion` to start with reduced motion enabled. Terminals do not expose a standard operating-system motion preference, so this host uses an explicit user policy.
+
+The host samples the shared `AnimatedValues` before drawing. While active, it waits for either input or the next frame deadline. Unhandled input does not reset that deadline. Once settled, it blocks on input without a frame timer. The displayed frame counter and height expose interruption and idle behavior.
+
+`python3 scripts/test-terminal-motion.py` runs the actual binary through a private tmux PTY. It checks interruption, live and startup reduced motion, immediate Space activation, idle frame counts, continuous unhandled input, resize, and exit. The deterministic cell contract also runs with `cargo test --locked -p crepuscularity-tui --example animated_disclosure`. These checks do not establish Windows console presentation coverage.
+
 ## Verification commands
 
 ```sh
