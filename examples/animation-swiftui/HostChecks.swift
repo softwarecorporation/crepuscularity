@@ -11,13 +11,18 @@ struct HostChecks {
         precondition(host!.error == nil && host!.height == 0)
         host!.toggle()
         var count = host!.frames
+        let observationStart = DispatchTime.now().uptimeNanoseconds
         waitUntil { host!.frames > count && (host!.height > 0 || !host!.active) }
         if host!.active {
             precondition(host!.height > 0 && host!.height < 112)
             let intermediate = host!.height
             host!.toggle()
-            precondition(host!.height >= intermediate && host!.height <= 112)
             let reversed = host!.height
+            precondition(reversed > 0 && reversed < 112)
+            // Both curves have maximum slope 2; the closing sample may already
+            // be below the last opening frame. Allow integer-ms and Float IR rounding.
+            let elapsedMs = Double(DispatchTime.now().uptimeNanoseconds - observationStart) / 1_000_000 + 1
+            precondition(abs(reversed - intermediate) <= 112 * 2 * elapsedMs / 2_000 + 0.0001)
             count = host!.frames
             waitUntil { host!.frames > count && (host!.height < reversed || !host!.active) }
             precondition(host!.height >= 0 && host!.height < reversed)
