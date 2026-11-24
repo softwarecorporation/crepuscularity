@@ -28,7 +28,7 @@ struct Disclosure {
 impl Disclosure {
     fn new(reduced: bool) -> Self {
         let mut ui = Template::from_source(
-            "div flex-col\n  div h-[2]\n    span text-cyan-400 \"Shared motion / terminal\"\n  div h-[2]\n    span \"Enter/click: animate | Space: immediate | R: reduce motion | Q: quit\"\n  if {height >= 1}\n    div class=\"h-[{height}] bg-gray-800\"\n      span \"One engine, terminal frames. Reverse while moving.\"\n  div h-[2]\n    span \"{status}\"",
+            "div flex-col\n  div h-[2]\n    span text-cyan-400 \"Shared motion / terminal\"\n  div h-[2]\n    span \"Enter/click: animate | Space: immediate | R: reduce motion | Q: quit\"\n  if {height >= 1}\n    div class=\"h-[{height.round}] bg-gray-800\"\n      span \"One engine, terminal frames. Reverse while moving.\"\n  div h-[2]\n    span \"{status}\"",
         );
         ui.set("height", 0);
         Self {
@@ -137,7 +137,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut stdout = io::stdout();
     let setup = execute!(stdout, EnterAlternateScreen, event::EnableMouseCapture);
     if let Err(error) = setup {
-        disable_raw_mode()?;
+        let _ = execute!(stdout, event::DisableMouseCapture);
+        let _ = execute!(stdout, LeaveAlternateScreen);
+        let _ = disable_raw_mode();
         return Err(error.into());
     }
     let result = Terminal::new(CrosstermBackend::new(stdout))
@@ -167,6 +169,10 @@ mod tests {
         host.toggle(0, false);
         host.tick(90);
         assert!(host.frame_timeout().is_some());
+        terminal
+            .draw(|frame| host.ui.draw_full(frame).unwrap())
+            .unwrap();
+        assert_eq!(terminal.backend().buffer()[(0, 6)].symbol(), "F");
         let intermediate = host.ui.context_mut().get_str("height");
         host.toggle(90, false);
         assert_eq!(host.ui.context_mut().get_str("height"), intermediate);

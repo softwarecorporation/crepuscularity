@@ -77,9 +77,11 @@ def main():
         assert until(lambda s: s[1] == "Idle" and s[3] == 0)[2]
         key("r")
         assert not until(lambda s: not s[2])[2]
+        before_space = idle()[0]
         key("Space")
-        assert until(lambda s: s[1] == "Idle" and s[3] == 8)[1] == "Idle"
-        idle()
+        activation = until(lambda s: s[0] > before_space)
+        assert activation == (before_space + 1, "Idle", False, 8), activation
+        assert idle()[3] == 8
         key("Enter")
         until(lambda s: s[1] == "Active")
         # Unhandled input must not keep resetting the frame deadline.
@@ -93,8 +95,9 @@ def main():
         assert start(binary, reduced=True)[2]
         key("Enter")
         assert until(lambda s: s[3] == 8)[1] == "Idle"
-        idle()
+        before_resize = idle()[0]
         tmux("resize-window", "-t", "motion", "-x", "80", "-y", "20")
+        until(lambda s: s[0] > before_resize)
         assert idle()[3] == 8
         key("q")
         deadline = time.monotonic() + 3

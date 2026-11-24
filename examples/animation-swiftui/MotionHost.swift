@@ -29,8 +29,10 @@ final class MotionHost: NSObject, ObservableObject {
     private var session: OpaquePointer?
     private var displayLink: CADisplayLink?
     private var reducedMotion = false
+    private let durationMs: UInt64
 
-    override init() {
+    init(durationMs: UInt64 = 240) {
+        self.durationMs = durationMs
         super.init()
         session = crepus_session_new()
         do {
@@ -52,7 +54,7 @@ final class MotionHost: NSObject, ObservableObject {
         expanded.toggle()
         do {
             let request = """
-            {"key":"height","target":\(expanded ? 112 : 0),"durationMs":240,
+            {"key":"height","target":\(expanded ? 112 : 0),"durationMs":\(durationMs),
              "easing":"ease-in-out","nowMs":\(Self.now),"reducedMotion":\(reducedMotion)}
             """
             try check(crepus_session_animate_json(session, request))
