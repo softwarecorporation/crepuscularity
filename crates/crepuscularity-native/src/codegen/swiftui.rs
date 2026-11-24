@@ -9,7 +9,7 @@ pub(super) fn generate_swiftui(ir: &ViewIr, view_name: &str) -> String {
     let body = swiftui_nodes(&ir.root, 2, &[]);
     let webview = "import WebKit\n#if canImport(UIKit)\npublic struct CrepusWebView: UIViewRepresentable {\n    public let source: String\n\n    public func makeUIView(context: Context) -> WKWebView {\n        WKWebView()\n    }\n\n    public func updateUIView(_ webView: WKWebView, context: Context) {\n        guard webView.url?.absoluteString != source, let url = URL(string: source) else { return }\n        webView.load(URLRequest(url: url))\n    }\n}\n#elseif canImport(AppKit)\npublic struct CrepusWebView: NSViewRepresentable {\n    public let source: String\n\n    public func makeNSView(context: Context) -> WKWebView {\n        WKWebView()\n    }\n\n    public func updateNSView(_ webView: WKWebView, context: Context) {\n        guard webView.url?.absoluteString != source, let url = URL(string: source) else { return }\n        webView.load(URLRequest(url: url))\n    }\n}\n#endif\n\n";
     format!(
-        "import Foundation\nimport SwiftUI\n{webview}#if canImport(UIKit)\nimport UIKit\n#endif\n#if canImport(AppKit)\nimport AppKit\n#endif\n\n@MainActor\npublic enum CrepusActions {{\n    public static let model = CrepusStateStore.shared\n    public static var dispatch: (String) -> String = {{ _ in \"{{}}\" }}\n    public static var resultSink: (String) -> Void = {{ _ in }}\n\n    public static func applyResult(_ json: String) {{\n        model.applyResult(json)\n    }}\n\n    private static let actionQueue = DispatchQueue(label: \"dev.crepuscularity.native.actions\", qos: .userInitiated)\n\n    public static func perform(_ action: String) {{\n        let dispatch = dispatch\n        let resultSink = resultSink\n        actionQueue.async {{\n            let result = dispatch(action)\n            DispatchQueue.main.sync {{\n                resultSink(result)\n            }}\n        }}\n    }}\n\n    // Drafts keep controls responsive; the captured sink owns authoritative commits.\n    public static func performChange(_ action: String?, bind: String, value: Any) {{\n        let resultSink = resultSink\n        guard let valueJson = CrepusRustActions.encodeQueuedChangeValue(value),\n              let sequence = model.beginDraft(path: bind, valueJson: valueJson) else {{\n            resultSink(\"{{\\\"ok\\\":false,\\\"error\\\":\\\"json encode failure\\\"}}\")\n            return\n        }}\n        let action = action ?? \"\"\n        actionQueue.async {{\n            let result = CrepusRustActions.dispatchQueuedChange(action, bind: bind, valueJson: valueJson)\n            DispatchQueue.main.sync {{\n                defer {{ model.finishDraft(path: bind, sequence: sequence) }}\n                resultSink(result)\n            }}\n        }}\n    }}\n\n    public static func dismissKeyboard() {{\n#if canImport(UIKit)\n        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)\n#elseif canImport(AppKit)\n        NSApp.keyWindow?.makeFirstResponder(nil)\n#endif\n    }}\n}}\n\n@MainActor\npublic struct {view_name}: View {{\n    @ObservedObject private var model = CrepusActions.model\n\n    public init() {{}}\n\n    public var body: some View {{\n{body}\n        .contentShape(Rectangle())\n        .onTapGesture {{ CrepusActions.dismissKeyboard() }}\n    }}\n}}\n"
+        "import Foundation\nimport SwiftUI\n{webview}#if canImport(UIKit)\nimport UIKit\n#endif\n#if canImport(AppKit)\nimport AppKit\n#endif\n\n@MainActor\npublic enum CrepusActions {{\n    public static let model = CrepusStateStore.shared\n    public static var dispatch: (String) -> String = {{ _ in \"{{}}\" }}\n    public static var resultSink: (String) -> Void = {{ _ in }}\n\n    public static func applyResult(_ json: String) {{\n        model.applyResult(json)\n    }}\n\n    private static let actionQueue = DispatchQueue(label: \"dev.crepuscularity.native.actions\", qos: .userInitiated)\n\n    public static func perform(_ action: String) {{\n        let dispatch = dispatch\n        let resultSink = resultSink\n        actionQueue.async {{\n            let result = dispatch(action)\n            DispatchQueue.main.sync {{\n                resultSink(result)\n            }}\n        }}\n    }}\n\n    public static func performChange(_ action: String?, bind: String, value: Any) {{\n        let resultSink = resultSink\n        guard let valueJson = CrepusRustActions.encodeJsonValue(value) else {{\n            resultSink(#\"{{\"ok\":false,\"error\":\"json encode failure\"}}\"#)\n            return\n        }}\n        let action = action ?? \"\"\n        actionQueue.async {{\n            let result = CrepusRustActions.dispatchChangeStored(action, bind: bind, valueJson: valueJson)\n            DispatchQueue.main.sync {{\n                resultSink(result)\n            }}\n        }}\n    }}\n\n    public static func dismissKeyboard() {{\n#if canImport(UIKit)\n        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)\n#elseif canImport(AppKit)\n        NSApp.keyWindow?.makeFirstResponder(nil)\n#endif\n    }}\n}}\n\n@MainActor\npublic struct {view_name}: View {{\n    @ObservedObject private var model = CrepusActions.model\n\n    public init() {{}}\n\n    public var body: some View {{\n{body}\n        .contentShape(Rectangle())\n        .onTapGesture {{ CrepusActions.dismissKeyboard() }}\n    }}\n}}\n"
     )
 }
 
@@ -176,7 +176,7 @@ fn swiftui_node(node: &ViewNode, indent: usize, scopes: &[ScopeBinding]) -> Stri
                 .map(|bind| {
                     format!(
                         "Binding(get: {{ {} }}, set: {{ newValue in {} }})",
-                        swiftui_draft_getter("Bool", bind, scopes),
+                        SWIFT.model_bool(bind, scopes),
                         swiftui_change(on_change.as_deref(), bind, "newValue", scopes)
                     )
                 })
@@ -213,7 +213,7 @@ fn swiftui_node(node: &ViewNode, indent: usize, scopes: &[ScopeBinding]) -> Stri
                 .map(|bind| {
                     format!(
                         "Binding(get: {{ Swift.min(Swift.max({}, {min:?}), {max:?}) }}, set: {{ newValue in {} }})",
-                        swiftui_draft_getter("Number", bind, scopes),
+                        SWIFT.model_number(bind, scopes),
                         swiftui_change(on_change.as_deref(), bind, "newValue", scopes)
                     )
                 })
@@ -486,14 +486,14 @@ fn swiftui_node(node: &ViewNode, indent: usize, scopes: &[ScopeBinding]) -> Stri
             let mut out = if *multiline && !secure {
                 format!(
                     "{pad}TextEditor(text: Binding(get: {{ {} }}, set: {{ newValue in {} }}))",
-                    swiftui_draft_getter("Text", bind, scopes),
+                    SWIFT.model_text(bind.trim(), scopes),
                     on_value_change
                 )
             } else if *secure {
                 format!(
                     "{pad}SecureField(\"{}\", text: Binding(get: {{ {} }}, set: {{ newValue in {} }}))",
                     SWIFT.escape(placeholder),
-                    swiftui_draft_getter("Text", bind, scopes),
+                    SWIFT.model_text(bind.trim(), scopes),
                     on_value_change
                 )
             } else {
@@ -501,7 +501,7 @@ fn swiftui_node(node: &ViewNode, indent: usize, scopes: &[ScopeBinding]) -> Stri
                     "{pad}TextField(\"{}\", text: Binding(get: {{ {} }}, set: {{ newValue in {} }}))",
                     SWIFT.escape(placeholder)
                     ,
-                    swiftui_draft_getter("Text", bind, scopes),
+                    SWIFT.model_text(bind.trim(), scopes),
                     on_value_change
                 )
             };
@@ -530,7 +530,7 @@ fn swiftui_node(node: &ViewNode, indent: usize, scopes: &[ScopeBinding]) -> Stri
                 .join("\n");
             let mut out = format!(
                 "{pad}Picker(\"\", selection: Binding(get: {{ {} }}, set: {{ newValue in {} }})) {{\n{rows}\n{pad}}}",
-                swiftui_draft_getter("Text", bind, scopes),
+                SWIFT.model_text(bind.trim(), scopes),
                 swiftui_change(on_change.as_deref(), bind, "newValue", scopes)
             );
             out.push('\n');
@@ -574,7 +574,7 @@ fn swiftui_node(node: &ViewNode, indent: usize, scopes: &[ScopeBinding]) -> Stri
                 .join("\n");
             let mut out = format!(
                 "{pad}TabView(selection: Binding(get: {{ {} }}, set: {{ newValue in {} }})) {{\n{rows}\n{pad}}}",
-                swiftui_draft_getter("Text", bind, scopes),
+                SWIFT.model_text(bind.trim(), scopes),
                 swiftui_change(on_change.as_deref(), bind, "newValue", scopes)
             );
             swiftui_style(&mut out, style.as_ref(), false, indent);
@@ -606,22 +606,6 @@ fn swiftui_action(on_click: Option<&str>) -> String {
     on_click
         .map(|action| format!("CrepusActions.perform(\"{}\")", SWIFT.escape(action)))
         .unwrap_or_default()
-}
-
-fn swiftui_draft_getter(kind: &str, bind: &str, scopes: &[ScopeBinding]) -> String {
-    let bind = bind.trim();
-    let fallback = match kind {
-        "Bool" => SWIFT.model_bool(bind, scopes),
-        "Number" => SWIFT.model_number(bind, scopes),
-        _ => SWIFT.model_text(bind, scopes),
-    };
-    if bind.is_empty() {
-        return fallback;
-    }
-    format!(
-        "model.draft{kind}(path: {}, fallback: {fallback})",
-        SWIFT.binding_path(bind, scopes)
-    )
 }
 
 fn swiftui_change(

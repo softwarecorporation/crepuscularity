@@ -103,25 +103,30 @@ fn dispatch_change_json(action: &str, bind: &str, value_json: &str) -> String {
         return merge_view_value(bind, value).to_string();
     }
     let mut payload = serde_json::Map::new();
-    payload.insert(bind.to_string(), value);
-    if let Some((capability, method)) = action.split_once('.') {
-        return dispatch_action_json(
-            &serde_json::json!({
-                "kind": "plugin",
-                "capability": capability,
-                "method": method,
-                "payload": payload,
-            })
-            .to_string(),
-        );
+    payload.insert(bind.to_string(), value.clone());
+    let request = if let Some((capability, method)) = action.split_once('.') {
+        serde_json::json!({
+            "kind": "plugin",
+            "capability": capability,
+            "method": method,
+            "payload": payload,
+        })
+    } else {
+        serde_json::json!({ "action": action, "payload": payload })
+    };
+    let raw = dispatch_action_json(&request.to_string());
+    let mut result: serde_json::Value =
+        serde_json::from_str(&raw).expect("action dispatcher emits JSON");
+    if result.get("ok").and_then(serde_json::Value::as_bool) == Some(true) {
+        if let Some(fields) = result
+            .get_mut("value")
+            .and_then(serde_json::Value::as_object_mut)
+        {
+            // A handler can normalize the bound value; otherwise commit the submitted edit.
+            fields.entry(bind.to_string()).or_insert(value);
+        }
     }
-    if !action.is_empty() {
-        payload.insert(
-            "action".to_string(),
-            serde_json::Value::String(action.to_string()),
-        );
-    }
-    dispatch_action_json(&serde_json::Value::Object(payload).to_string())
+    result.to_string()
 }
 
 fn merge_view_value(bind: &str, value: serde_json::Value) -> serde_json::Value {
@@ -1426,6 +1431,15 @@ mod tests {
         assert_eq!(result["action"], "sync");
         assert_eq!(result["value"]["enabled"], true);
         assert_eq!(result["state"]["lastPayload"], r#"{"enabled":true}"#);
+
+        let normalized: serde_json::Value =
+            serde_json::from_str(&dispatch_change_json("sync", "message", "13.5")).unwrap();
+        assert_eq!(normalized["value"]["message"], "synced");
+
+        let rejected: serde_json::Value =
+            serde_json::from_str(&dispatch_change_json("unknown", "enabled", "false")).unwrap();
+        assert_eq!(rejected["ok"], false);
+        assert!(rejected.get("value").is_none());
     }
 
     #[test]

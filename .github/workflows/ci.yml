@@ -298,6 +298,9 @@ jobs:
           cargo build --locked -p crepuscularity-cli --no-default-features
           python3 scripts/test-native-shell-colors.py
 
+      - name: Test fresh Swift scaffold queued edits
+        run: python3 scripts/test-native-swift-scaffold.py
+
       - name: Test managed C# session lifetime
         env:
           DOTNET_CLI_TELEMETRY_OPTOUT: "1"
