@@ -120,6 +120,7 @@ async function assertLivePolicy() {
 try {
   await cdp('Runtime.enable');
   await cdp('Log.enable');
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 1100, height: 800, deviceScaleFactor: 2, mobile: false });
   await media(false);
   await reload();
   await instrument();
