@@ -11,22 +11,30 @@ struct HostChecks {
         precondition(host!.error == nil && host!.height == 0)
         host!.toggle()
         var count = host!.frames
-        let observationStart = DispatchTime.now().uptimeNanoseconds
         waitUntil { host!.frames > count && (host!.height > 0 || !host!.active) }
         if host!.active {
             precondition(host!.height > 0 && host!.height < 112)
-            let intermediate = host!.height
+            let intermediate = host!.lastSample!
             host!.toggle()
-            let reversed = host!.height
-            precondition(reversed > 0 && reversed < 112)
-            // Both curves have maximum slope 2; the closing sample may already
-            // be below the last opening frame. Allow integer-ms and Float IR rounding.
-            let elapsedMs = Double(DispatchTime.now().uptimeNanoseconds - observationStart) / 1_000_000 + 1
-            precondition(abs(reversed - intermediate) <= 112 * 2 * elapsedMs / 2_000 + 0.0001)
-            count = host!.frames
-            waitUntil { host!.frames > count && (host!.height < reversed || !host!.active) }
-            precondition(host!.height >= 0 && host!.height < reversed)
-            print("PASS display-link intermediate and reversed frames")
+            let reversed = host!.lastSample!
+            // Use the timestamps of the rendered samples, not time spent waiting
+            // for callbacks. Both curves have slope <= 2; allow Float IR rounding.
+            let elapsedMs = Double(reversed.timeMs - intermediate.timeMs)
+            precondition(abs(reversed.height - intermediate.height) <= 112 * 2 * elapsedMs / 2_000 + 0.0001)
+            if host!.active {
+                precondition(reversed.height > 0 && reversed.height <= 112)
+                count = host!.frames
+                waitUntil { host!.frames > count && (host!.height < reversed.height || !host!.active) }
+                precondition(host!.height >= 0 && host!.height < reversed.height)
+                if reversed.height == 112 {
+                    print("Opening completed before retarget sample; PASS observed closing frame")
+                } else {
+                    print("PASS display-link intermediate and reversed frames")
+                }
+            } else {
+                precondition(reversed.height == 0)
+                print("Retarget sample completed closing after a delay; deterministic ABI checks cover midflight reversal")
+            }
         } else {
             precondition(host!.height == 112)
             print("Display-link delay completed motion before an intermediate sample; deterministic engine tests cover interpolation")

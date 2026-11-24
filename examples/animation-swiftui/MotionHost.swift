@@ -26,6 +26,7 @@ final class MotionHost: NSObject, ObservableObject {
     @Published private(set) var active = false
     @Published private(set) var frames = 0
     @Published private(set) var error: String?
+    private(set) var lastSample: (height: Double, timeMs: UInt64)?
     private var session: OpaquePointer?
     private var displayLink: CADisplayLink?
     private var reducedMotion = false
@@ -77,9 +78,11 @@ final class MotionHost: NSObject, ObservableObject {
         stopFrames()
         guard session != nil, error == nil else { return }
         do {
-            try check(crepus_session_tick_animations(session, Self.now, 1))
+            let now = Self.now
+            try check(crepus_session_tick_animations(session, now, 1))
             active = false
             try render()
+            lastSample = (height, now)
         } catch { fail(error) }
     }
 
@@ -100,10 +103,12 @@ final class MotionHost: NSObject, ObservableObject {
     }
 
     private func sample() throws {
-        let result = crepus_session_tick_animations(session, Self.now, reducedMotion ? 1 : 0)
+        let now = Self.now
+        let result = crepus_session_tick_animations(session, now, reducedMotion ? 1 : 0)
         try check(result)
         active = result == 1
         try render() // The final inactive sample contains the exact endpoint.
+        lastSample = (height, now)
     }
 
     private func render() throws {
