@@ -28,7 +28,7 @@ struct Disclosure {
 impl Disclosure {
     fn new(reduced: bool) -> Self {
         let mut ui = Template::from_source(
-            "div flex-col\n  div h-[2]\n    span text-cyan-400 \"Shared motion / terminal\"\n  div h-[2]\n    span \"Enter/click: animate | Space: immediate | R: reduce motion | Q: quit\"\n  div class=\"h-[{height}] bg-gray-800\"\n    if {height >= 1}\n      span \"One engine, terminal frames. Reverse while moving.\"\n  div h-[2]\n    span \"{status}\"",
+            "div flex-col\n  div h-[2]\n    span text-cyan-400 \"Shared motion / terminal\"\n  div h-[2]\n    span \"Enter/click: animate | Space: immediate | R: reduce motion | Q: quit\"\n  if {height >= 1}\n    div class=\"h-[{height}] bg-gray-800\"\n      span \"One engine, terminal frames. Reverse while moving.\"\n  div h-[2]\n    span \"{status}\"",
         );
         ui.set("height", 0);
         Self {
@@ -197,5 +197,9 @@ mod tests {
         host.toggle(201, true);
         assert_eq!(host.ui.context_mut().get_str("height"), "0");
         assert_eq!(host.frame_timeout(), None);
+        terminal
+            .draw(|frame| host.ui.draw_full(frame).unwrap())
+            .unwrap();
+        assert_eq!(terminal.backend().buffer()[(0, 4)].symbol(), "F");
     }
 }
