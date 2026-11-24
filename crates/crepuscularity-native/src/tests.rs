@@ -685,7 +685,7 @@ fn codegen_preserves_control_change_bindings() {
     assert!(swift
         .contains("public static func performChange(_ action: String?, bind: String, value: Any)"));
     assert!(swift.contains(
-        "CrepusRustActions.dispatchQueuedChange(action, bind: bind, valueJson: valueJson)"
+        "CrepusRustActions.dispatchChangeStored(action, bind: bind, valueJson: valueJson)"
     ));
     assert!(swift.contains(
         "CrepusActions.performChange(\"sync_enabled\", bind: \"enabled\", value: newValue)"
@@ -1706,7 +1706,7 @@ fn generated_slider_getters_clamp_bound_model_values() {
     .unwrap();
     let swift = generate_native_source(&ir, NativeCodegenTarget::SwiftUi, "BoundSlider");
     assert!(
-        swift.contains("Swift.min(Swift.max(model.draftNumber(path: \"volume\", fallback: CrepusActions.model.number(\"volume\")), 10.0), 20.0)"),
+        swift.contains("Swift.min(Swift.max(CrepusActions.model.number(\"volume\"), 10.0), 20.0)"),
         "{swift}"
     );
     let compose = generate_native_source(&ir, NativeCodegenTarget::Compose, "BoundSlider");
@@ -1739,39 +1739,38 @@ fn compose_slider_steps_match_uniform_declared_intervals() {
 }
 
 #[test]
-fn controlled_drafts_use_resolved_paths_while_labels_read_committed_state() {
+fn controlled_bindings_read_scoped_state_and_queue_changes_before_input_actions() {
     let ir = render_template_to_ir(
         "div\n for row in {rows}\n  input bind=row.title @change=save @input=observe\n  toggle bind=row.enabled\n  slider bind=row.volume\n  span \"{row.title}\"\n  for child in {row.children}\n   checkbox bind=child.selected",
         &TemplateContext::new(),
     ).unwrap();
     for target in [NativeCodegenTarget::SwiftUi, NativeCodegenTarget::Compose] {
         let source = generate_native_source(&ir, target, "DraftControls");
-        for (accessor, path) in [
-            (
-                "draftText",
-                "`__crepusItem_726f77__crepusPath` + \".title\"",
-            ),
-            (
-                "draftBool",
-                "`__crepusItem_726f77__crepusPath` + \".enabled\"",
-            ),
-            (
-                "draftNumber",
-                "`__crepusItem_726f77__crepusPath` + \".volume\"",
-            ),
-            (
-                "draftBool",
-                "`__crepusItem_6368696c64__crepusPath` + \".selected\"",
-            ),
-        ] {
-            let label = match target {
-                NativeCodegenTarget::SwiftUi => "path: ",
-                NativeCodegenTarget::Compose => "",
-            };
-            assert!(
-                source.contains(&format!(".{accessor}({label}{path}")),
-                "{source}"
-            );
+        if matches!(target, NativeCodegenTarget::Compose) {
+            for (accessor, path) in [
+                (
+                    "draftText",
+                    "`__crepusItem_726f77__crepusPath` + \".title\"",
+                ),
+                (
+                    "draftBool",
+                    "`__crepusItem_726f77__crepusPath` + \".enabled\"",
+                ),
+                (
+                    "draftNumber",
+                    "`__crepusItem_726f77__crepusPath` + \".volume\"",
+                ),
+                (
+                    "draftBool",
+                    "`__crepusItem_6368696c64__crepusPath` + \".selected\"",
+                ),
+            ] {
+                assert!(source.contains(&format!(".{accessor}({path}")), "{source}");
+            }
+        } else {
+            assert!(source.contains("CrepusActions.model.bool(\"row.enabled\", scopeName: \"row\", scope: `__crepusItem_726f77`)"), "{source}");
+            assert!(source.contains("CrepusActions.model.number(\"row.volume\", scopeName: \"row\", scope: `__crepusItem_726f77`)"), "{source}");
+            assert!(source.contains("CrepusActions.model.bool(\"child.selected\", scopeName: \"child\", scope: `__crepusItem_6368696c64`)"), "{source}");
         }
         let committed_label = match target {
             NativeCodegenTarget::SwiftUi => "Text(CrepusActions.model.text(\"row.title\", scopeName: \"row\", scope: `__crepusItem_726f77`))",

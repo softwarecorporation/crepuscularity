@@ -1,15 +1,92 @@
+import Foundation
 import SwiftUI
+import WebKit
+#if canImport(UIKit)
+public struct CrepusWebView: UIViewRepresentable {
+    public let source: String
 
+    public func makeUIView(context: Context) -> WKWebView {
+        WKWebView()
+    }
+
+    public func updateUIView(_ webView: WKWebView, context: Context) {
+        guard webView.url?.absoluteString != source, let url = URL(string: source) else { return }
+        webView.load(URLRequest(url: url))
+    }
+}
+#elseif canImport(AppKit)
+public struct CrepusWebView: NSViewRepresentable {
+    public let source: String
+
+    public func makeNSView(context: Context) -> WKWebView {
+        WKWebView()
+    }
+
+    public func updateNSView(_ webView: WKWebView, context: Context) {
+        guard webView.url?.absoluteString != source, let url = URL(string: source) else { return }
+        webView.load(URLRequest(url: url))
+    }
+}
+#endif
+
+#if canImport(UIKit)
+import UIKit
+#endif
+#if canImport(AppKit)
+import AppKit
+#endif
+
+@MainActor
 public enum CrepusActions {
+    public static let model = CrepusStateStore.shared
     public static var dispatch: (String) -> String = { _ in "{}" }
     public static var resultSink: (String) -> Void = { _ in }
 
+    public static func applyResult(_ json: String) {
+        model.applyResult(json)
+    }
+
+    private static let actionQueue = DispatchQueue(label: "dev.crepuscularity.native.actions", qos: .userInitiated)
+
     public static func perform(_ action: String) {
-        resultSink(dispatch(action))
+        let dispatch = dispatch
+        let resultSink = resultSink
+        actionQueue.async {
+            let result = dispatch(action)
+            DispatchQueue.main.sync {
+                resultSink(result)
+            }
+        }
+    }
+
+    public static func performChange(_ action: String?, bind: String, value: Any) {
+        let resultSink = resultSink
+        guard let valueJson = CrepusRustActions.encodeJsonValue(value) else {
+            resultSink(#"{"ok":false,"error":"json encode failure"}"#)
+            return
+        }
+        let action = action ?? ""
+        actionQueue.async {
+            let result = CrepusRustActions.dispatchChangeStored(action, bind: bind, valueJson: valueJson)
+            DispatchQueue.main.sync {
+                resultSink(result)
+            }
+        }
+    }
+
+    public static func dismissKeyboard() {
+#if canImport(UIKit)
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+#elseif canImport(AppKit)
+        NSApp.keyWindow?.makeFirstResponder(nil)
+#endif
     }
 }
 
+@MainActor
 public struct CrepusGeneratedView: View {
+    @ObservedObject private var model = CrepusActions.model
+
     public init() {}
 
     public var body: some View {
@@ -85,5 +162,7 @@ public struct CrepusGeneratedView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(24)
             .background(Color(red: 0.063, green: 0.086, blue: 0.141, opacity: 1.000))
+        .contentShape(Rectangle())
+        .onTapGesture { CrepusActions.dismissKeyboard() }
     }
 }

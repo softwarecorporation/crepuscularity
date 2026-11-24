@@ -1,0 +1,6 @@
+div
+  input bind=note
+  toggle bind=enabled
+  slider bind=ratio
+  span
+    "Note {note}"

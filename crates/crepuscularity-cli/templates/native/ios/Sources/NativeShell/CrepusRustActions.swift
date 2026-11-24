@@ -38,7 +38,10 @@ private func crepusMobileEvalItemsJson(_ expr: UnsafePointer<CChar>, _ exprLengt
 public enum CrepusRustActions {
     public static func install() {
         CrepusActions.dispatch = { action in
-            if let host = dispatchHostAction(action) {
+            let host = Thread.isMainThread
+                ? dispatchHostAction(action)
+                : DispatchQueue.main.sync { dispatchHostAction(action) }
+            if let host {
                 return host
             }
             return action.withCString { pointer in
@@ -70,10 +73,14 @@ public enum CrepusRustActions {
         }
     }
 
-    public static func dispatchChangeStored(_ action: String, bind: String, value: Any) -> String {
+    public nonisolated static func dispatchChangeStored(_ action: String, bind: String, value: Any) -> String {
         guard let valueJson = encodeJsonValue(value) else {
             return "{\"ok\":false,\"error\":\"json encode failure\"}"
         }
+        return dispatchChangeStored(action, bind: bind, valueJson: valueJson)
+    }
+
+    nonisolated static func dispatchChangeStored(_ action: String, bind: String, valueJson: String) -> String {
         return action.withCString { actionPointer in
             bind.withCString { bindPointer in
                 valueJson.withCString { valuePointer in
@@ -116,7 +123,7 @@ public enum CrepusRustActions {
         return String(cString: pointer)
     }
 
-    private static func oversizedResultJson(action: String) -> String {
+    private nonisolated static func oversizedResultJson(action: String) -> String {
         let payload: [String: Any] = [
             "ok": false,
             "action": action,
@@ -129,28 +136,14 @@ public enum CrepusRustActions {
         return "{\"ok\":false,\"error\":\"action result too large\"}"
     }
 
-    private static func encodeJsonValue(_ value: Any) -> String? {
-        switch value {
-        case let text as String:
-            guard let data = try? JSONSerialization.data(withJSONObject: [text]),
-                  let json = String(data: data, encoding: .utf8)
-            else {
-                return nil
-            }
-            return String(json.dropFirst().dropLast())
-        case let number as NSNumber:
-            return number.stringValue
-        case is NSNull:
-            return "null"
-        default:
-            guard JSONSerialization.isValidJSONObject(value),
-                  let data = try? JSONSerialization.data(withJSONObject: value),
-                  let json = String(data: data, encoding: .utf8)
-            else {
-                return nil
-            }
-            return json
+    nonisolated static func encodeJsonValue(_ value: Any) -> String? {
+        guard JSONSerialization.isValidJSONObject([value]),
+              let data = try? JSONSerialization.data(withJSONObject: value, options: [.fragmentsAllowed]),
+              let json = String(data: data, encoding: .utf8)
+        else {
+            return nil
         }
+        return json
     }
 
     private static func dispatchHostAction(_ action: String) -> String? {
