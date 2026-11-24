@@ -182,7 +182,7 @@ private fun parseColor(hex: String): Color {
     val v = t.toLong(16)
     return when (t.length) {
         6 -> Color(0xFF000000L or v)
-        8 -> Color(v)
+        8 -> Color(((v and 0xFF) shl 24) or (v shr 8))
         else -> Color.Gray
     }
 }
