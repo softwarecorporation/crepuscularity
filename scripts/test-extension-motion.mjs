@@ -58,13 +58,26 @@ const state = () => evaluate(`({
 })`);
 async function instrument() {
   await until(() => evaluate(`!!document.querySelector('#toggle') && !toggle.disabled`), 'WASM ready');
-  await evaluate(`(() => {
-    window.probe = {frames: 0, pending: new Set()};
+  await evaluate(`(async () => {
+    window.probe = {frames: 0, pending: new Set(), calls: [], inFrame: false};
+    const {loadMotionValue} = await import(chrome.runtime.getURL('crates/crepuscularity-wasm/npm/browser.js'));
+    const MotionValue = await loadMotionValue();
+    for (const method of ['animateTo', 'tick']) {
+      const original = MotionValue.prototype[method];
+      MotionValue.prototype[method] = function(...args) {
+        const call = {method, args, beforeActive: this.active, beforeValue: +panel.dataset.value, inFrame: probe.inFrame};
+        call.value = original.apply(this, args);
+        call.active = this.active;
+        probe.calls.push(call);
+        return call.value;
+      };
+    }
     const request = window.requestAnimationFrame.bind(window);
     const cancel = window.cancelAnimationFrame.bind(window);
     window.requestAnimationFrame = callback => {
       const id = request(now => {
-        probe.pending.delete(id); probe.frames++; callback(now);
+        probe.pending.delete(id); probe.frames++; probe.inFrame = true;
+        try { callback(now); } finally { probe.inFrame = false; }
       });
       probe.pending.add(id); return id;
     };
@@ -88,6 +101,22 @@ async function idle() {
   return after;
 }
 const media = reduced => cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: reduced ? 'reduce' : 'no-preference' }] });
+const interior = async () => {
+  const s = await state();
+  return s.active && s.value > 5 && s.value < s.target * .7;
+};
+async function assertLivePolicy() {
+  await until(() => evaluate(`probe.calls.some(c => c.method === 'tick' && c.args[1] && !c.inFrame)`), 'policy event tick');
+  const calls = await evaluate('probe.calls');
+  const animation = calls.findLast(c => c.method === 'animateTo');
+  const tick = calls.find(c => c.method === 'tick' && c.args[1] && !c.inFrame);
+  assert.equal(tick.beforeActive, true, 'Policy must arrive during active motion');
+  assert.ok(tick.beforeValue > 0 && tick.beforeValue < animation.args[0], 'Policy must interrupt an interior frame');
+  assert.ok(tick.args[0] < animation.args[3] + animation.args[1] - 30, 'Policy tick must precede natural completion');
+  assert.equal(tick.active, false, 'The policy event itself must settle, not a later deadline');
+  assert.equal(tick.value, animation.args[0]);
+  console.log(`PASS policy event settled ${Math.round(animation.args[3] + animation.args[1] - tick.args[0])} ms before deadline`);
+}
 try {
   await cdp('Runtime.enable');
   await cdp('Log.enable');
@@ -100,19 +129,29 @@ try {
   assert.deepEqual(manifest.permissions ?? [], []);
   await idle();
   await click('#toggle');
-  await until(async () => { const s = await state(); return s.active && s.value > 5 && s.value < s.target * .7; }, 'intermediate opening');
-  const opening = await state();
+  await until(interior, 'intermediate opening');
   await click('#toggle');
+  const transitions = await evaluate(`probe.calls.filter(c => c.method === 'animateTo')`);
+  const opening = transitions[0];
+  const reversed = transitions.at(-1);
+  assert.equal(reversed.beforeActive, true);
+  assert.ok(reversed.beforeValue > 0 && reversed.beforeValue < opening.args[0]);
+  const progress = (Math.floor(reversed.args[3]) - Math.floor(opening.args[3])) / opening.args[1];
+  assert.ok(progress > 0 && progress < .7, 'Retarget must occur before the old transition completes');
+  const fraction = progress < .5 ? 2 * progress ** 2 : 1 - (-2 * progress + 2) ** 2 / 2;
+  const expected = opening.value + (opening.args[0] - opening.value) * fraction;
+  assert.ok(Math.abs(reversed.value - expected) < 1e-7, 'Retarget must preserve the old curve at the actual engine timestamp');
   const reversal = await state();
   assert.ok(reversal.active && reversal.value > 0 && reversal.value < reversal.target);
   await until(async () => { const s = await state(); return s.active && s.value < reversal.value; }, 'reversed frame');
   assert.equal((await idle()).value, 0);
-  console.log(`PASS installed MV3 WASM, trusted pointer, interruption (${opening.value.toFixed(2)} → ${reversal.value.toFixed(2)}), final frame, idle`);
+  console.log(`PASS installed MV3 WASM, trusted pointer, continuous in-flight retarget (${reversed.value.toFixed(2)}), final frame, idle`);
 
+  await evaluate('probe.calls = []');
   await click('#toggle');
-  await until(async () => (await state()).value > 0, 'active policy transition');
+  await until(interior, 'active policy transition');
   await media(true);
-  await until(async () => { const s = await state(); return s.reduced && !s.active; }, 'live browser policy');
+  await assertLivePolicy();
   let settled = await idle();
   assert.equal(settled.value, settled.target);
   assert.equal(settled.expanded, 'true');
@@ -127,9 +166,11 @@ try {
   assert.equal((await state()).value, 0, 'Disabling policy must not replay');
   console.log('PASS live browser reduced-motion policy, immediate pointer activation, no replay');
 
+  await evaluate('probe.calls = []');
   await click('#toggle');
-  await until(async () => (await state()).value > 0, 'explicit policy transition');
+  await until(interior, 'explicit policy transition');
   await click('#reduce');
+  await assertLivePolicy();
   settled = await idle();
   assert.equal(settled.value, settled.target);
   await click('#toggle');
@@ -148,11 +189,11 @@ try {
 
   const wideHeight = settled.target;
   await cdp('Emulation.setDeviceMetricsOverride', { width: 280, height: 844, deviceScaleFactor: 2, mobile: false });
-  await until(async () => (await state()).target > wideHeight, 'content reflow');
+  await until(async () => { const s = await state(); return s.target > wideHeight && s.value === s.target && !s.active; }, 'resized endpoint');
   settled = await idle();
   assert.equal(settled.value, settled.target, 'Resize must retarget the open content');
   await cdp('Emulation.setDeviceMetricsOverride', { width: 1100, height: 800, deviceScaleFactor: 2, mobile: false });
-  await until(async () => (await state()).target === wideHeight, 'wide content reflow');
+  await until(async () => { const s = await state(); return s.target === wideHeight && s.value === s.target && !s.active; }, 'wide resized endpoint');
   settled = await idle();
   assert.equal(settled.value, wideHeight);
   console.log('PASS open content resize and idle after retargeting');
