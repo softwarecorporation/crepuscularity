@@ -2,6 +2,22 @@
 /* eslint-disable */
 
 /**
+ * The shared Rust engine for browser, extension and worker frame loops.
+ */
+export class MotionValue {
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * Milliseconds use the same time origin as subsequent tick calls (performance.now()).
+     */
+    animateTo(target: number, duration_ms: number, easing: string, now_ms: number, reduced_motion: boolean): number;
+    cancel(): number;
+    constructor(value: number);
+    tick(now_ms: number, reduced_motion: boolean): number;
+    readonly active: boolean;
+}
+
+/**
  * Schema version of the IR this module emits; consumers should check it.
  */
 export function ir_version(): number;

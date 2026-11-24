@@ -4,6 +4,7 @@
 //! mirrored into macro-facing code when the same syntax should work at compile time and runtime.
 
 pub mod analysis;
+pub mod animation;
 pub mod ast;
 pub mod ast_cache;
 pub mod build;

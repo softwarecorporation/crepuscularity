@@ -10,3 +10,9 @@ export function loadParser(
 ) {
   return parser ??= init({ module_or_path: wasmUrl }).then(() => createParser(bindings));
 }
+
+/** Load the shared Rust animation class using the same WASM instance as the parser. */
+export async function loadMotionValue(wasmUrl?: string | URL) {
+  await loadParser(wasmUrl);
+  return bindings.MotionValue;
+}

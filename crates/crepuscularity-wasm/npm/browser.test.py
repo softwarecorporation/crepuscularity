@@ -48,7 +48,11 @@ with tempfile.TemporaryDirectory(prefix="crepus-parser-browser-") as directory:
                     (installed / path.relative_to(package)).read_bytes()
                 ).digest(), path
     print("PASS packed file hashes:", hashlib.sha256((root / "parser.tgz").read_bytes()).hexdigest())
-    check = ('import { parseTemplate } from "@tschk/crepuscularity-wasm";'
+    check = ('import { parseTemplate, MotionValue } from "@tschk/crepuscularity-wasm";'
+        'const motion = new MotionValue(12);'
+        'motion.animateTo(92, 200, "linear", 0, false);'
+        'if (motion.tick(50, false) !== 32 || !motion.active) throw new Error("Root animation export failed");'
+        'motion.free();'
         'for (const [filename, source] of [["App.crepus", \'p "hello"\'],'
         '["App.tsx", "<p>hello</p>"], ["App.svelte", "<p>hello</p>"],'
         '["App.vue", "<template><p>hello</p></template>"],'
@@ -61,7 +65,7 @@ with tempfile.TemporaryDirectory(prefix="crepus-parser-browser-") as directory:
         subprocess.run([runtime, "--eval", check], cwd=root, check=True, capture_output=True)
         print(f"PASS {runtime}: packed install root, browser and types exports")
     entry = root / "browser.ts"
-    entry.write_text('export { loadParser } from "@tschk/crepuscularity-wasm/browser";')
+    entry.write_text('export { loadParser, loadMotionValue } from "@tschk/crepuscularity-wasm/browser";')
     subprocess.run([
         "bun", "build", str(entry), "--target", "browser", "--outdir", str(root),
     ], check=True, capture_output=True)
@@ -69,7 +73,7 @@ with tempfile.TemporaryDirectory(prefix="crepus-parser-browser-") as directory:
     shutil.copyfile(installed / "browser/crepuscularity_wasm_bg.wasm", root / "relocated.wasm")
     (root / "index.html").write_text("<!doctype html><title>Parser worker test</title>")
     (root / "worker.js").write_text(r'''
-import { loadParser } from './browser.js';
+import { loadParser, loadMotionValue } from './browser.js';
 self.onmessage = async ({data:mode}) => {
   try {
     if (mode === 'failed') {
@@ -83,6 +87,13 @@ self.onmessage = async ({data:mode}) => {
     const first = loadParser(mode === 'custom' ? '/relocated.wasm' : undefined);
     if (first !== loadParser()) throw new Error('Initialization was not shared');
     const parser = await first;
+    const MotionValue = await loadMotionValue();
+    const motion = new MotionValue(12);
+    try {
+      motion.animateTo(92, 200, 'linear', 0, false);
+      if (motion.tick(50, false) !== 32 || !motion.active) throw new Error('Worker animation frame failed');
+      if (motion.tick(60, true) !== 92 || motion.active) throw new Error('Worker reduced motion failed');
+    } finally { motion.free(); }
     const fixtures = [
       ['App.crepus', 'p "hello"'],
       ['App.tsx', '<p>hello</p>'],
@@ -154,7 +165,7 @@ self.onmessage = async ({data:mode}) => {
                         assert server.request_paths.count(expected_path) == before + 1, server.request_paths
                         assert result.get("ok"), result
                         assert result.get("failed") if mode == "failed" else result.get("frontends") == 6, result
-                    print(f"PASS {name}: real WASM worker, six frontends, shared initialization and validation")
+                    print(f"PASS {name}: real WASM worker, animation frames/reduced motion, six frontends, shared initialization and validation")
                 finally:
                     browser.close()
     finally:

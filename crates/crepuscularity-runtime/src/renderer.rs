@@ -14,9 +14,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use gpui::{
-    bounce, div, ease_in_out, ease_out_quint, linear, quadratic, rgb, Animation, AnimationExt,
-    AnyElement, ElementId, InteractiveElement, IntoElement, ParentElement, SharedString,
-    StatefulInteractiveElement, Styled,
+    bounce, div, quadratic, rgb, Animation, AnimationExt, AnyElement, ElementId,
+    InteractiveElement, IntoElement, ParentElement, SharedString, StatefulInteractiveElement,
+    Styled,
 };
 
 use crepuscularity_core::include_paths::resolve_include_path;
@@ -612,12 +612,24 @@ fn finish_element_bound(
             d = d.focusable().tab_index(0);
         }
         if !el.animations.is_empty() {
-            render_with_animations(d, &el.animations, path, Some(id))
+            render_with_animations(
+                d,
+                &el.animations,
+                path,
+                Some(id),
+                ctx.get_bool("crepus_reduced_motion"),
+            )
         } else {
             d.into_any_element()
         }
     } else if !el.animations.is_empty() {
-        render_with_animations(d, &el.animations, path, None)
+        render_with_animations(
+            d,
+            &el.animations,
+            path,
+            None,
+            ctx.get_bool("crepus_reduced_motion"),
+        )
     } else {
         d.into_any_element()
     }
@@ -657,7 +669,16 @@ fn render_with_animations<E: Styled + IntoElement + 'static>(
     animations: &[AnimationSpec],
     path: &str,
     explicit_id: Option<SharedString>,
+    reduced_motion: bool,
 ) -> AnyElement {
+    if reduced_motion {
+        return animations
+            .iter()
+            .fold(d, |el, spec| {
+                apply_animation_property(el, &spec.property, 1.0)
+            })
+            .into_any_element();
+    }
     // shortcut: positional IDs change on sibling reorder; use explicit IDs for reorderable nodes.
     let id = ElementId::Name(animation_state_id(path, explicit_id, animations));
 
@@ -704,13 +725,13 @@ fn render_with_animations<E: Styled + IntoElement + 'static>(
 }
 
 fn apply_easing(anim: Animation, easing: &str) -> Animation {
+    use crepuscularity_core::animation::Easing;
     match easing {
-        "linear" => anim.with_easing(linear),
-        "ease-in-out" => anim.with_easing(ease_in_out),
-        "quadratic" => anim.with_easing(quadratic),
         "bounce" => anim.with_easing(bounce(quadratic)),
-        "ease-out" => anim.with_easing(ease_out_quint()),
-        _ => anim, // default: linear
+        _ => {
+            let easing = easing.parse::<Easing>().unwrap_or_default();
+            anim.with_easing(move |delta| easing.sample(delta as f64) as f32)
+        }
     }
 }
 
@@ -1815,6 +1836,67 @@ mod identity_tests {
     }
 
     #[test]
+    fn reduced_motion_finishes_gpui_directives_without_an_animation_wrapper() {
+        let nodes = crepuscularity_core::parse_template(
+            "div animate:fade-out={100ms linear}\ndiv animate:opacity={100ms linear repeat}",
+        )
+        .unwrap();
+        let mut ctx = TemplateContext::new();
+        ctx.set("crepus_reduced_motion", true);
+        let mut elements =
+            render_siblings_with_ctx(&nodes, &ctx, "root", None, &mut IncludeCache::default());
+        assert_eq!(
+            elements[0]
+                .downcast_mut::<gpui::Div>()
+                .unwrap()
+                .style()
+                .opacity,
+            Some(0.0)
+        );
+        assert_eq!(
+            elements[1]
+                .downcast_mut::<gpui::Div>()
+                .unwrap()
+                .style()
+                .opacity,
+            Some(1.0)
+        );
+    }
+
+    #[test]
+    fn shared_motion_frames_reach_gpui_layout() {
+        use crepuscularity_core::animation::{AnimatedValues, Easing, Transition};
+        let nodes = crepuscularity_core::parse_template("div class=\"w-[{width}px]\"").unwrap();
+        let mut ctx = TemplateContext::new();
+        ctx.set("width", 12);
+        let mut motion = AnimatedValues::default();
+        motion
+            .animate(
+                &mut ctx,
+                "width",
+                92.0,
+                Transition {
+                    duration_ms: 200,
+                    easing: Easing::Linear,
+                },
+                0,
+                false,
+            )
+            .unwrap();
+        for (time, reduced, width, active) in [
+            (0, false, 12.0, true),
+            (50, false, 32.0, true),
+            (75, true, 92.0, false),
+        ] {
+            assert_eq!(motion.tick(&mut ctx, time, reduced), active);
+            let mut elements =
+                render_siblings_with_ctx(&nodes, &ctx, "root", None, &mut IncludeCache::default());
+            let element = elements[0].downcast_mut::<gpui::Div>().unwrap();
+            assert_eq!(element.style().size.width, Some(gpui::px(width).into()));
+        }
+    }
+
+    #[test]
     fn animation_state_identity_changes_with_ordered_configuration() {
         let spec = AnimationSpec {
             property: "opacity".into(),
@@ -1930,6 +2012,34 @@ mod identity_tests {
         })
         .unwrap();
         assert_bounds(&mut cx, 60, 40);
+
+        use crepuscularity_core::animation::{AnimatedValues, Easing, Transition};
+        let mut motion = AnimatedValues::default();
+        cx.update_window(window, |_, _, app| {
+            entity.borrow().as_ref().unwrap().update(app, |view, _| {
+                let transition = Transition {
+                    duration_ms: 200,
+                    easing: Easing::Linear,
+                };
+                motion
+                    .animate(&mut view.1, "width", 20.0, transition, 0, false)
+                    .unwrap();
+                motion
+                    .animate(&mut view.1, "height", 80.0, transition, 0, false)
+                    .unwrap();
+            });
+        })
+        .unwrap();
+        for (time, reduced, width, height) in [(50, false, 50, 50), (75, true, 20, 80)] {
+            cx.update_window(window, |_, _, app| {
+                entity.borrow().as_ref().unwrap().update(app, |view, cx| {
+                    assert_eq!(motion.tick(&mut view.1, time, reduced), !reduced);
+                    cx.notify();
+                });
+            })
+            .unwrap();
+            assert_bounds(&mut cx, width, height);
+        }
     }
 
     #[cfg(target_os = "macos")]

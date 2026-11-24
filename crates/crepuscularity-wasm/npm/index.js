@@ -35,9 +35,11 @@ function createParser({ ir_version, parse_crepus_json, parse_template_json }) {
 }
 
 // crates/crepuscularity-wasm/npm/index.ts
+var { MotionValue } = bindings;
 var { IR_VERSION, parseCrepus, parseTemplate } = createParser(bindings);
 export {
   IR_VERSION,
+  MotionValue,
   parseCrepus,
   parseTemplate
 };

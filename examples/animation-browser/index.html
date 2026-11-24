@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Crepuscularity animation example</title>
+<style>
+  :root { color-scheme: light dark; font: 16px/1.55 system-ui, sans-serif; background: light-dark(#fafaf9,#171717); color: light-dark(#252525,#ededeb); }
+  * { box-sizing: border-box; }
+  main { max-width: 640px; margin: 12vh auto; padding: 24px; }
+  h1 { font-size: 28px; letter-spacing: -.025em; margin: 12px 0; }
+  p { color: light-dark(#555,#bdbdb8); }
+  a { color: inherit; text-underline-offset: 3px; }
+  button { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 18px 0; border: 0; border-block: 1px solid light-dark(#ccc,#555); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  button:hover { background: light-dark(#f0f0ed,#252525); }
+  button:active { background: light-dark(#e5e5e1,#303030); }
+  :focus-visible { outline: 2px solid light-dark(#176557,#8bd2be); outline-offset: 5px; }
+  #panel { height: 0; overflow: hidden; }
+  #details { padding: 18px 0; }
+  ul { margin: 0; padding-left: 22px; }
+  label { display: flex; align-items: center; gap: 10px; margin-top: 28px; cursor: pointer; }
+  input { width: 18px; height: 18px; accent-color: #176557; }
+  output { display: block; margin-top: 8px; font-size: 14px; color: light-dark(#555,#bdbdb8); }
+  footer { margin-top: 40px; font-size: 14px; }
+</style>
+<main>
+  <a href="../../docs/animation.md">Crepuscularity / Animation</a>
+  <h1>One clock. Every target.</h1>
+  <p>This disclosure uses the Rust animation engine compiled to WASM, not a CSS transition. Toggle it again mid-motion to reverse from the current position.</p>
+  <button id="toggle" aria-controls="panel" aria-expanded="false" disabled>
+    Build targets <span id="indicator" aria-hidden="true">+</span>
+  </button>
+  <section id="panel" aria-label="Build targets" inert>
+    <div id="details">
+      <ul>
+        <li>Desktop: GPUI and Tauri</li>
+        <li>Web, WASM and browser extensions</li>
+        <li>Native: SwiftUI, Compose and Flutter View IR</li>
+        <li>Terminal: Ratatui</li>
+        <li>Embedded: RGB565 and LVGL</li>
+      </ul>
+    </div>
+  </section>
+  <label><input id="reduce" type="checkbox">Reduce motion in this example</label>
+  <output id="policy" aria-live="polite">Loading the Rust engine…</output>
+  <footer>No timers run once the panel settles. The system reduced-motion preference is always respected.</footer>
+</main>
+<script type="module">
+  import { loadMotionValue } from '../../crates/crepuscularity-wasm/npm/browser.js';
+  const toggle = document.querySelector('#toggle');
+  const panel = document.querySelector('#panel');
+  const details = document.querySelector('#details');
+  const reduce = document.querySelector('#reduce');
+  const policy = document.querySelector('#policy');
+  const system = matchMedia('(prefers-reduced-motion: reduce)');
+  let motion;
+  let open = false;
+  let pending;
+  const reduced = () => reduce.checked || system.matches;
+
+  function paint(value) {
+    panel.style.height = `${value}px`;
+    panel.dataset.active = String(motion.active);
+    panel.dataset.value = String(value);
+  }
+
+  function frame(now) {
+    pending = undefined;
+    paint(motion.tick(now, reduced()));
+    if (motion.active) pending = requestAnimationFrame(frame);
+  }
+
+  function policyChanged() {
+    policy.textContent = reduced() ? 'Reduced motion: changes are immediate.' : 'Motion enabled: 240 ms, ease-in-out.';
+    if (motion) {
+      if (pending !== undefined) cancelAnimationFrame(pending);
+      frame(performance.now());
+    }
+  }
+
+  toggle.addEventListener('click', event => {
+    open = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    panel.inert = !open;
+    document.querySelector('#indicator').textContent = open ? '−' : '+';
+    if (pending !== undefined) cancelAnimationFrame(pending);
+    pending = undefined;
+    // Keyboard activation is immediate; pointer activation demonstrates the transition.
+    paint(motion.animateTo(open ? details.offsetHeight : 0, 240, 'ease-in-out', performance.now(), reduced() || event.detail === 0));
+    if (motion.active) pending = requestAnimationFrame(frame);
+  });
+  reduce.addEventListener('change', policyChanged);
+  system.addEventListener('change', policyChanged);
+  new ResizeObserver(() => {
+    if (!motion || !open) return;
+    paint(motion.animateTo(details.offsetHeight, 240, 'ease-in-out', performance.now(), reduced()));
+    if (motion.active && pending === undefined) pending = requestAnimationFrame(frame);
+  }).observe(details);
+
+  try {
+    const MotionValue = await loadMotionValue();
+    motion = new MotionValue(0);
+    paint(0);
+    toggle.disabled = false;
+    policyChanged();
+  } catch (error) {
+    policy.textContent = 'Engine unavailable. Build the WASM bindings as described in docs/animation.md.';
+    console.error(error);
+  }
+  addEventListener('pagehide', () => {
+    if (pending !== undefined) cancelAnimationFrame(pending);
+    pending = undefined;
+    if (motion) paint(motion.tick(performance.now(), true));
+  });
+</script>
+</html>

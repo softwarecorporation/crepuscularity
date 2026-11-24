@@ -46,6 +46,27 @@ the lowered style hints.
 Check `IR_VERSION` if you persist or transport IR — the schema is versioned and
 bumps on incompatible changes.
 
+## Animation values
+
+Node consumers import `MotionValue` from the package root. Browser and extension
+pages load the same Rust engine through the browser entry:
+
+```js
+import { loadMotionValue } from "@tschk/crepuscularity-wasm/browser";
+
+const MotionValue = await loadMotionValue();
+const width = new MotionValue(12);
+width.animateTo(92, 200, "ease-in-out", performance.now(), false);
+// In the host's frame callback:
+const value = width.tick(performance.now(), matchMedia("(prefers-reduced-motion: reduce)").matches);
+// Present value, then request another frame only if width.active is true.
+// Call width.free() when the owner is disposed.
+```
+
+See [the animation contract](../../../docs/animation.md) for interruption,
+reduced motion, and backend integration. Templates and JSON snapshots do not
+schedule their own frames.
+
 ## Building
 
 Requires the `wasm32-unknown-unknown` target and a `wasm-bindgen` CLI matching

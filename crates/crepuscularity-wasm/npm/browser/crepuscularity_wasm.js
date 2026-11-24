@@ -1,6 +1,103 @@
 /* @ts-self-types="./crepuscularity_wasm.d.ts" */
 
 /**
+ * The shared Rust engine for browser, extension and worker frame loops.
+ */
+export class MotionValue {
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        MotionValueFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_motionvalue_free(ptr, 0);
+    }
+    /**
+     * @returns {boolean}
+     */
+    get active() {
+        const ret = wasm.motionvalue_active(this.__wbg_ptr);
+        return ret !== 0;
+    }
+    /**
+     * Milliseconds use the same time origin as subsequent tick calls (performance.now()).
+     * @param {number} target
+     * @param {number} duration_ms
+     * @param {string} easing
+     * @param {number} now_ms
+     * @param {boolean} reduced_motion
+     * @returns {number}
+     */
+    animateTo(target, duration_ms, easing, now_ms, reduced_motion) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            const ptr0 = passStringToWasm0(easing, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+            const len0 = WASM_VECTOR_LEN;
+            wasm.motionvalue_animateTo(retptr, this.__wbg_ptr, target, duration_ms, ptr0, len0, now_ms, reduced_motion);
+            var r0 = getDataViewMemory0().getFloat64(retptr + 8 * 0, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+            if (r3) {
+                throw takeObject(r2);
+            }
+            return r0;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {number}
+     */
+    cancel() {
+        const ret = wasm.motionvalue_cancel(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @param {number} value
+     */
+    constructor(value) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.motionvalue_new(retptr, value);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            if (r2) {
+                throw takeObject(r1);
+            }
+            this.__wbg_ptr = r0;
+            MotionValueFinalization.register(this, this.__wbg_ptr, this);
+            return this;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @param {number} now_ms
+     * @param {boolean} reduced_motion
+     * @returns {number}
+     */
+    tick(now_ms, reduced_motion) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.motionvalue_tick(retptr, this.__wbg_ptr, now_ms, reduced_motion);
+            var r0 = getDataViewMemory0().getFloat64(retptr + 8 * 0, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+            if (r3) {
+                throw takeObject(r2);
+            }
+            return r0;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+}
+if (Symbol.dispose) MotionValue.prototype[Symbol.dispose] = MotionValue.prototype.free;
+
+/**
  * Schema version of the IR this module emits; consumers should check it.
  * @returns {number}
  */
@@ -96,12 +193,19 @@ function __wbg_get_imports() {
             const ret = Error(getStringFromWasm0(arg0, arg1));
             return addHeapObject(ret);
         },
+        __wbg___wbindgen_throw_344f42d3211c4765: function(arg0, arg1) {
+            throw new Error(getStringFromWasm0(arg0, arg1));
+        },
     };
     return {
         __proto__: null,
         "./crepuscularity_wasm_bg.js": import0,
     };
 }
+
+const MotionValueFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_motionvalue_free(ptr, 1));
 
 function addHeapObject(obj) {
     if (heap_next === heap.length) heap.push(heap.length + 1);

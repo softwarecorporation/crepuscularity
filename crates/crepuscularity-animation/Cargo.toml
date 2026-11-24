@@ -1,0 +1,7 @@
+[package]
+name = "crepuscularity-animation"
+version = "0.1.0"
+edition = "2021"
+license = "ISC"
+description = "Caller-clocked, no_std animation values for every Crepuscularity backend"
+repository = "https://github.com/softwarecorporation/crepuscularity"

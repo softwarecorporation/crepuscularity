@@ -29,6 +29,7 @@ embassy-stm32 = [
 esp-idf = ["dep:esp-idf-sys"]
 
 [dependencies]
+crepuscularity-animation = { path = "../crepuscularity-animation", version = "0.1.0" }
 crepuscularity-colors = { path = "../crepuscularity-colors", version = "0.1.0" }
 crepuscularity-core = { path = "../crepuscularity-core", version = "0.6.1", optional = true }
 crepuscularity_macros = { path = "../crepuscularity_macros", version = "0.6.0", optional = true }
