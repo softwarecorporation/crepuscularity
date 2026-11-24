@@ -154,6 +154,8 @@ fn assert_csharp_output(
         ("crepus_session_set_files_json", "int"),
         ("crepus_session_set_context_json", "int"),
         ("crepus_session_apply_context_patch_json", "int"),
+        ("crepus_session_animate_json", "int"),
+        ("crepus_session_tick_animations", "int"),
         ("crepus_session_set_event_callback", "int"),
         ("crepus_session_render_ir_json", "IntPtr"),
         ("crepus_session_dispatch_event_json", "IntPtr"),
@@ -219,6 +221,8 @@ internal static class Check {{
     static readonly Func<IntPtr, IntPtr, int> Files = EquilibriumImports.crepus_session_set_files_json;
     static readonly Func<IntPtr, IntPtr, int> Context = EquilibriumImports.crepus_session_set_context_json;
     static readonly Func<IntPtr, IntPtr, int> Patch = EquilibriumImports.crepus_session_apply_context_patch_json;
+    static readonly Func<IntPtr, IntPtr, int> Animate = EquilibriumImports.crepus_session_animate_json;
+    static readonly Func<IntPtr, ulong, int, int> Tick = EquilibriumImports.crepus_session_tick_animations;
     static readonly Func<IntPtr, CrepusEventCallback?, IntPtr, int> Callback = EquilibriumImports.crepus_session_set_event_callback;
     static readonly Func<IntPtr, IntPtr> Render = EquilibriumImports.crepus_session_render_ir_json;
     static readonly Func<IntPtr, IntPtr, IntPtr> Dispatch = EquilibriumImports.crepus_session_dispatch_event_json;
@@ -234,7 +238,7 @@ internal static class Check {{
 }
 
 fn generated_csharp_compiles_with_all_abi_function_signatures_case(compile_external: bool) {
-    assert_csharp_output(None, 13, "", compile_external);
+    assert_csharp_output(None, 15, "", compile_external);
 }
 
 #[test]
@@ -259,7 +263,7 @@ fn overridden_csharp_header_keeps_extra_pointer_and_scalar_functions_case(compil
     let custom = original.replace("#ifdef __cplusplus\n}", "const char *crepus_extra(const void *userdata);\nint32_t crepus_extra_status(int32_t value);\nvoid CallingConvention(void);\n\n#ifdef __cplusplus\n}");
     assert_ne!(custom, original);
     std::fs::write(&header, custom).unwrap();
-    assert_csharp_output(Some(header), 16, "static readonly Func<IntPtr, IntPtr> Extra = EquilibriumImports.crepus_extra;\nstatic readonly Func<int, int> ExtraStatus = EquilibriumImports.crepus_extra_status;", compile_external);
+    assert_csharp_output(Some(header), 18, "static readonly Func<IntPtr, IntPtr> Extra = EquilibriumImports.crepus_extra;\nstatic readonly Func<int, int> ExtraStatus = EquilibriumImports.crepus_extra_status;", compile_external);
 }
 
 #[test]
@@ -284,7 +288,7 @@ fn csharp_fixed_width_scalars_keep_their_native_calling_types_case(compile_exter
     let custom = original.replace("#ifdef __cplusplus\n}", "uint32_t crepus_unsigned(uint32_t value);\nfloat crepus_float(float value);\ndouble crepus_double(double value);\nint64_t crepus_signed_wide(int64_t value);\nuint64_t crepus_unsigned_wide(uint64_t value);\n\n#ifdef __cplusplus\n}");
     assert_ne!(custom, original);
     std::fs::write(&header, custom).unwrap();
-    assert_csharp_output(Some(header), 18, "static readonly Func<uint,uint> Unsigned = EquilibriumImports.crepus_unsigned;\nstatic readonly Func<float,float> Float = EquilibriumImports.crepus_float;\nstatic readonly Func<double,double> Double = EquilibriumImports.crepus_double;\nstatic readonly Func<long,long> SignedWide = EquilibriumImports.crepus_signed_wide;\nstatic readonly Func<ulong,ulong> UnsignedWide = EquilibriumImports.crepus_unsigned_wide;", compile_external);
+    assert_csharp_output(Some(header), 20, "static readonly Func<uint,uint> Unsigned = EquilibriumImports.crepus_unsigned;\nstatic readonly Func<float,float> Float = EquilibriumImports.crepus_float;\nstatic readonly Func<double,double> Double = EquilibriumImports.crepus_double;\nstatic readonly Func<long,long> SignedWide = EquilibriumImports.crepus_signed_wide;\nstatic readonly Func<ulong,ulong> UnsignedWide = EquilibriumImports.crepus_unsigned_wide;", compile_external);
 }
 
 #[test]
@@ -381,7 +385,7 @@ fn quoted_header_name_uses_typed_escaping_without_relaxing_canonical_policy_case
     std::fs::write(&header, custom).unwrap();
     assert_csharp_output(
         Some(header),
-        14,
+        16,
         "static readonly Func<int, int> Extra = EquilibriumImports.crepus_extra;",
         compile_external,
     );

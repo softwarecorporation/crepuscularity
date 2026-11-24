@@ -8,6 +8,7 @@ exclude = [
     "plugins/crepuscularity-components/packages/gpui",
 ]
 members = [
+    "crates/crepuscularity-animation",
     "crates/crepuscularity-colors",
     "crates/crepuscularity",
     "crates/crepuscularity-core",

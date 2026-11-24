@@ -69,6 +69,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "crepuscularity-animation"
+version = "0.1.0"
+
+[[package]]
 name = "crepuscularity-colors"
 version = "0.1.0"
 
@@ -77,6 +81,7 @@ name = "crepuscularity-core"
 version = "0.6.1"
 dependencies = [
  "caseless",
+ "crepuscularity-animation",
  "crepuscularity-colors",
  "serde_json",
  "sha2",

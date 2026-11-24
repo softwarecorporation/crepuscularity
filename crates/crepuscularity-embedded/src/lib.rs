@@ -65,6 +65,8 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
+pub use crepuscularity_animation as animation;
+
 pub mod color;
 pub mod compiled;
 pub mod display;

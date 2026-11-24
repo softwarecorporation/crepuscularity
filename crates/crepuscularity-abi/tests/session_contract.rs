@@ -177,3 +177,43 @@ fn deep_ir_uses_the_owned_serializer() {
     assert_eq!(result.matches("\"kind\":\"stack\"").count(), 250);
     assert!(result.contains("\"content\":\"leaf\""));
 }
+
+#[test]
+fn animation_frames_retarget_reduce_and_yield_to_explicit_updates() {
+    let session = Session::new();
+    let animate = |target, time| {
+        let request = CString::new(format!(r#"{{"key":"count","target":{target},"durationMs":200,"easing":"linear","nowMs":{time},"reducedMotion":false}}"#)).unwrap();
+        assert_eq!(crepus_session_animate_json(session.0, request.as_ptr()), 0);
+    };
+    animate(81, 0);
+    assert_eq!(crepus_session_tick_animations(session.0, 50, 0), 1);
+    assert!(session.render().contains("Count 21"));
+    animate(-19, 100);
+    assert!(session.render().contains("Count 41"));
+    assert_eq!(crepus_session_tick_animations(session.0, 150, 0), 1);
+    assert!(session.render().contains("Count 26"));
+    assert_eq!(crepus_session_tick_animations(session.0, 151, 1), 0);
+    assert!(session.render().contains("Count -19"));
+    assert_eq!(crepus_session_tick_animations(session.0, 160, 0), 0);
+    animate(81, 160);
+    let patch = CString::new(r#"{"count":7}"#).unwrap();
+    assert_eq!(
+        crepus_session_apply_context_patch_json(session.0, patch.as_ptr()),
+        0
+    );
+    assert_eq!(crepus_session_tick_animations(session.0, 360, 0), 0);
+    assert!(session.render().contains("Count 7"));
+    for invalid in [
+        r#"{"key":"count","target":1e400,"durationMs":200,"easing":"linear","nowMs":0,"reducedMotion":false}"#,
+        r#"{"key":"missing","target":1,"durationMs":200,"easing":"linear","nowMs":0,"reducedMotion":false}"#,
+        r#"{"key":"count","target":1,"durationMs":200,"easing":"typo","nowMs":0,"reducedMotion":false}"#,
+    ] {
+        assert_eq!(
+            crepus_session_animate_json(session.0, CString::new(invalid).unwrap().as_ptr()),
+            -1
+        );
+        assert!(session.render().contains("Count 7"));
+    }
+    assert_eq!(crepus_session_tick_animations(ptr::null_mut(), 0, 0), -1);
+    assert_eq!(crepus_session_tick_animations(session.0, 0, 2), -1);
+}

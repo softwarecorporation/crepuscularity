@@ -190,7 +190,7 @@ fn actual_header_exports_all_thirteen_typed_abi_functions_to_an_importing_module
             .lines()
             .filter(|line| line.trim_start().starts_with("proc "))
             .count(),
-        13,
+        15,
         "{generated}"
     );
     assert_generated_signatures(&output.0);
@@ -238,7 +238,7 @@ fn selected_header_extra_function_preserves_pointer_and_scalar_types_case(compil
             .lines()
             .filter(|line| line.trim_start().starts_with("proc "))
             .count(),
-        16,
+        18,
         "{generated}"
     );
     assert_generated_signatures(&output.0);

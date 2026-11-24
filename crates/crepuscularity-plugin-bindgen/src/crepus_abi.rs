@@ -196,6 +196,7 @@ fn tokens(input: &str) -> Result<Vec<&str>, String> {
 enum Ty {
     Void,
     Status,
+    Milliseconds,
     Session,
     Input,
     Output,
@@ -251,6 +252,20 @@ const FUNCTIONS: &[Function] = &[
         args: &[("session", Session), ("context_json_utf8", Input)],
     },
     Function {
+        name: "crepus_session_animate_json",
+        result: Status,
+        args: &[("session", Session), ("animation_json_utf8", Input)],
+    },
+    Function {
+        name: "crepus_session_tick_animations",
+        result: Status,
+        args: &[
+            ("session", Session),
+            ("now_ms", Milliseconds),
+            ("reduced_motion", Status),
+        ],
+    },
+    Function {
         name: "crepus_session_set_event_callback",
         result: Status,
         args: &[
@@ -290,6 +305,7 @@ fn c_type(ty: Ty) -> &'static str {
     match ty {
         Void => "void",
         Status => "int32_t",
+        Milliseconds => "uint64_t",
         Session => "CrepusSession *",
         Input => "const char *",
         Output => "char *",
@@ -302,6 +318,7 @@ fn rust_type(ty: Ty) -> &'static str {
     match ty {
         Void => "()",
         Status => "i32",
+        Milliseconds => "u64",
         Session => "*mut CrepusSession",
         Input => "*const c_char",
         Output => "*mut c_char",
@@ -314,6 +331,7 @@ fn csharp_type(ty: Ty) -> &'static str {
     match ty {
         Void => "void",
         Status => "int",
+        Milliseconds => "ulong",
         Callback => "CrepusEventCallback?",
         _ => "IntPtr",
     }
@@ -323,6 +341,7 @@ fn v_type(ty: Ty) -> &'static str {
     match ty {
         Void => "",
         Status => "i32",
+        Milliseconds => "u64",
         Session => "&C.CrepusSession",
         Input | Output => "&char",
         Callback => "CrepusEventCallback",

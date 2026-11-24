@@ -19,6 +19,8 @@ fn C.crepus_session_set_component(session &C.CrepusSession, component_utf8 &char
 fn C.crepus_session_set_files_json(session &C.CrepusSession, files_json_utf8 &char) i32
 fn C.crepus_session_set_context_json(session &C.CrepusSession, context_json_utf8 &char) i32
 fn C.crepus_session_apply_context_patch_json(session &C.CrepusSession, context_json_utf8 &char) i32
+fn C.crepus_session_animate_json(session &C.CrepusSession, animation_json_utf8 &char) i32
+fn C.crepus_session_tick_animations(session &C.CrepusSession, now_ms u64, reduced_motion i32) i32
 fn C.crepus_session_set_event_callback(session &C.CrepusSession, callback CrepusEventCallback, userdata voidptr) i32
 fn C.crepus_session_render_ir_json(session &C.CrepusSession) &char
 fn C.crepus_session_dispatch_event_json(session &C.CrepusSession, event_json_utf8 &char) &char

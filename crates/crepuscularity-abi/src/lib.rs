@@ -25,6 +25,7 @@ use std::os::raw::{c_char, c_void};
 use std::path::PathBuf;
 use std::ptr;
 
+use crepuscularity_core::animation::{AnimatedValues, Transition};
 use crepuscularity_core::context::{TemplateContext, TemplateValue};
 use crepuscularity_native::{
     render_component_file_to_ir, render_from_files, render_template_to_ir, to_json_owned,
@@ -70,6 +71,7 @@ pub struct CrepusSession {
     source: Option<Source>,
     component: Option<String>,
     context: TemplateContext,
+    animations: AnimatedValues,
     callback: Option<CrepusEventCallback>,
     userdata: *mut c_void,
     last_error: Option<String>,
@@ -184,6 +186,7 @@ pub extern "C" fn crepus_session_set_context_json(
         let mut ctx = TemplateContext::new();
         merge_json_ctx(&value, &mut ctx)?;
         session.context.vars = ctx.vars;
+        session.animations.clear();
         Ok(())
     })
 }
@@ -198,8 +201,80 @@ pub extern "C" fn crepus_session_apply_context_patch_json(
         validate_context_numbers(&raw, 0)?;
         let value: Value = serde_json::from_str(&raw).map_err(|e| format!("context JSON: {e}"))?;
         merge_json_ctx(&value, &mut session.context)?;
+        cancel_patched_animations(session, &value);
         Ok(())
     })
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct AnimationRequest {
+    key: String,
+    target: f64,
+    duration_ms: u64,
+    easing: String,
+    now_ms: u64,
+    reduced_motion: bool,
+}
+
+/// Animate a numeric context binding; frame timing and accessibility policy belong to the host.
+#[no_mangle]
+pub extern "C" fn crepus_session_animate_json(
+    session: *mut CrepusSession,
+    animation_json_utf8: *const c_char,
+) -> i32 {
+    with_session(session, |session| {
+        let raw = read_required_json(animation_json_utf8, "animation_json")?;
+        let request: AnimationRequest =
+            serde_json::from_str(&raw).map_err(|e| format!("animation JSON: {e}"))?;
+        let transition = Transition {
+            duration_ms: request.duration_ms,
+            easing: request.easing.parse().map_err(str::to_owned)?,
+        };
+        session
+            .animations
+            .animate(
+                &mut session.context,
+                &request.key,
+                request.target,
+                transition,
+                request.now_ms,
+                request.reduced_motion,
+            )
+            .map_err(str::to_owned)?;
+        Ok(())
+    })
+}
+
+/// 1 = request another frame, 0 = settled, -1 = error. Render IR after ticking, including the final frame.
+#[no_mangle]
+pub extern "C" fn crepus_session_tick_animations(
+    session: *mut CrepusSession,
+    now_ms: u64,
+    reduced_motion: i32,
+) -> i32 {
+    match with_session_result(session, |session| {
+        if reduced_motion != 0 && reduced_motion != 1 {
+            return Err("reduced_motion must be 0 or 1".into());
+        }
+        Ok(session
+            .animations
+            .tick(&mut session.context, now_ms, reduced_motion == 1))
+    }) {
+        Ok(active) => i32::from(active),
+        Err(error) => {
+            set_error_for(session, error);
+            -1
+        }
+    }
+}
+
+fn cancel_patched_animations(session: &mut CrepusSession, patch: &Value) {
+    if let Some(object) = patch.as_object() {
+        for key in object.keys() {
+            session.animations.cancel(key);
+        }
+    }
 }
 
 #[no_mangle]
@@ -292,12 +367,14 @@ fn dispatch_event(
 
     if let Some(context) = &event.context {
         merge_json_ctx(context, &mut session.context)?;
+        cancel_patched_animations(session, context);
     }
     let handler = event
         .handler
         .or(event.event)
         .unwrap_or_else(|| "event".to_string());
     if let Some((key, value)) = bind_update(&handler) {
+        session.animations.cancel(&key);
         session.context.set(key, TemplateValue::Str(value));
     }
     let payload = json!({

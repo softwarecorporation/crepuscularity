@@ -24,6 +24,13 @@ int32_t crepus_session_set_component(CrepusSession *session, const char *compone
 int32_t crepus_session_set_files_json(CrepusSession *session, const char *files_json_utf8);
 int32_t crepus_session_set_context_json(CrepusSession *session, const char *context_json_utf8);
 int32_t crepus_session_apply_context_patch_json(CrepusSession *session, const char *context_json_utf8);
+/* JSON: {"key":"width","target":240,"durationMs":200,"easing":"ease-in-out","nowMs":0,"reducedMotion":false}.
+ * The key must already contain a number. Returns 0 on success, -1 on error.
+ * Context patches/bind events cancel animation of the keys they overwrite; replacing context cancels all. */
+int32_t crepus_session_animate_json(CrepusSession *session, const char *animation_json_utf8);
+/* Monotonic host milliseconds, same time origin as animate_json. reduced_motion is 0 or 1.
+ * Returns 1 while active, 0 when settled, -1 on error. Render IR even after the final 0. */
+int32_t crepus_session_tick_animations(CrepusSession *session, uint64_t now_ms, int32_t reduced_motion);
 int32_t crepus_session_set_event_callback(CrepusSession *session, CrepusEventCallback callback, void *userdata);
 char *crepus_session_render_ir_json(CrepusSession *session);
 char *crepus_session_dispatch_event_json(CrepusSession *session, const char *event_json_utf8);

@@ -8,6 +8,71 @@ use crepuscularity_core::context::{TemplateContext, TemplateValue};
 use crepuscularity_native::{render_template_to_ir, render_template_to_ir_with_path, IR_VERSION};
 use wasm_bindgen::prelude::*;
 
+/// The shared Rust engine for browser, extension and worker frame loops.
+#[wasm_bindgen]
+pub struct MotionValue {
+    inner: crepuscularity_core::animation::MotionValue,
+    active: bool,
+}
+
+#[wasm_bindgen]
+impl MotionValue {
+    #[wasm_bindgen(constructor)]
+    pub fn new(value: f64) -> Result<MotionValue, JsError> {
+        Ok(Self {
+            inner: crepuscularity_core::animation::MotionValue::new(value).map_err(JsError::new)?,
+            active: false,
+        })
+    }
+
+    /// Milliseconds use the same time origin as subsequent tick calls (performance.now()).
+    #[wasm_bindgen(js_name = animateTo)]
+    pub fn animate_to(
+        &mut self,
+        target: f64,
+        duration_ms: f64,
+        easing: &str,
+        now_ms: f64,
+        reduced_motion: bool,
+    ) -> Result<f64, JsError> {
+        let transition = crepuscularity_core::animation::Transition {
+            duration_ms: milliseconds(duration_ms)?,
+            easing: easing.parse().map_err(JsError::new)?,
+        };
+        let frame = self
+            .inner
+            .animate_to(target, transition, milliseconds(now_ms)?, reduced_motion)
+            .map_err(JsError::new)?;
+        self.active = frame.active;
+        Ok(frame.value)
+    }
+
+    pub fn tick(&mut self, now_ms: f64, reduced_motion: bool) -> Result<f64, JsError> {
+        let frame = self.inner.tick(milliseconds(now_ms)?, reduced_motion);
+        self.active = frame.active;
+        Ok(frame.value)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn active(&self) -> bool {
+        self.active
+    }
+
+    pub fn cancel(&mut self) -> f64 {
+        self.active = false;
+        self.inner.cancel().value
+    }
+}
+
+fn milliseconds(value: f64) -> Result<u64, JsError> {
+    if !value.is_finite() || !(0.0..=9_007_199_254_740_991.0).contains(&value) {
+        return Err(JsError::new(
+            "milliseconds must be finite, nonnegative and within the JS safe integer range",
+        ));
+    }
+    Ok(value as u64)
+}
+
 /// Schema version of the IR this module emits; consumers should check it.
 #[wasm_bindgen]
 pub fn ir_version() -> u32 {

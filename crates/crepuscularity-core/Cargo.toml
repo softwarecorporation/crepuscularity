@@ -9,6 +9,7 @@ documentation = "https://docs.rs/crepuscularity-core"
 readme = "../../README.md"
 
 [dependencies]
+crepuscularity-animation = { path = "../crepuscularity-animation", version = "0.1.0" }
 crepuscularity-colors = { path = "../crepuscularity-colors", version = "0.1.0" }
 toml = { workspace = true }
 sha2 = { workspace = true }

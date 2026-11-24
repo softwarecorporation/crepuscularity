@@ -59,6 +59,10 @@ class CrepusAbiSession:
         self._lib.crepus_session_set_context_json.restype = ctypes.c_int32
         self._lib.crepus_session_apply_context_patch_json.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
         self._lib.crepus_session_apply_context_patch_json.restype = ctypes.c_int32
+        self._lib.crepus_session_animate_json.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+        self._lib.crepus_session_animate_json.restype = ctypes.c_int32
+        self._lib.crepus_session_tick_animations.argtypes = [ctypes.c_void_p, ctypes.c_uint64, ctypes.c_int32]
+        self._lib.crepus_session_tick_animations.restype = ctypes.c_int32
         self._lib.crepus_session_set_event_callback.argtypes = [ctypes.c_void_p, self._callback_type, ctypes.c_void_p]
         self._lib.crepus_session_set_event_callback.restype = ctypes.c_int32
         self._lib.crepus_session_render_ir_json.argtypes = [ctypes.c_void_p]

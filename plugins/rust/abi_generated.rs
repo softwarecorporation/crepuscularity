@@ -20,6 +20,8 @@ unsafe extern "C" {
     pub fn crepus_session_set_files_json(session: *mut CrepusSession, files_json_utf8: *const c_char) -> i32;
     pub fn crepus_session_set_context_json(session: *mut CrepusSession, context_json_utf8: *const c_char) -> i32;
     pub fn crepus_session_apply_context_patch_json(session: *mut CrepusSession, context_json_utf8: *const c_char) -> i32;
+    pub fn crepus_session_animate_json(session: *mut CrepusSession, animation_json_utf8: *const c_char) -> i32;
+    pub fn crepus_session_tick_animations(session: *mut CrepusSession, now_ms: u64, reduced_motion: i32) -> i32;
     pub fn crepus_session_set_event_callback(session: *mut CrepusSession, callback: CrepusEventCallback, userdata: *mut c_void) -> i32;
     pub fn crepus_session_render_ir_json(session: *mut CrepusSession) -> *mut c_char;
     pub fn crepus_session_dispatch_event_json(session: *mut CrepusSession, event_json_utf8: *const c_char) -> *mut c_char;

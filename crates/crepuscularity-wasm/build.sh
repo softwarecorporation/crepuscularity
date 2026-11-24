@@ -39,6 +39,7 @@ bun build "$crate_dir/npm/browser.ts" --target browser --external './browser/*' 
 # Release optimization may erase Rust source paths. Exercise the generated
 # bindings instead of guessing parser availability from incidental WASM bytes.
 node "$crate_dir/npm/frontend-smoke.mjs"
+bun "$crate_dir/npm/animation-smoke.mjs"
 bun test "$crate_dir/npm/parser.test.ts"
 
 echo "built Node, browser and legacy bindings in $crate_dir"

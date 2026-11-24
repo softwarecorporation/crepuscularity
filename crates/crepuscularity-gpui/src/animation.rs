@@ -2,7 +2,13 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
 use std::time::Duration;
 
-use gpui::{ease_in_out, px, Animation, AnimationExt, Div, ElementId, IntoElement, Styled};
+use gpui::{px, Animation, AnimationExt, Div, ElementId, IntoElement, Styled};
+
+pub use crepuscularity_core::animation::{AnimatedValues, Easing, Frame, MotionValue, Transition};
+
+fn ease_in_out(delta: f32) -> f32 {
+    Easing::EaseInOut.sample(delta as f64) as f32
+}
 
 // Keep the caller's typed identity intact while restarting state on transition edits.
 fn transition_id(

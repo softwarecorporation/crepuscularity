@@ -10,6 +10,8 @@ int32_t eq_crepuscularity_abi_crepus_session_set_component(CrepusSession * sessi
 int32_t eq_crepuscularity_abi_crepus_session_set_files_json(CrepusSession * session, const char * files_json_utf8) { return crepus_session_set_files_json(session, files_json_utf8); }
 int32_t eq_crepuscularity_abi_crepus_session_set_context_json(CrepusSession * session, const char * context_json_utf8) { return crepus_session_set_context_json(session, context_json_utf8); }
 int32_t eq_crepuscularity_abi_crepus_session_apply_context_patch_json(CrepusSession * session, const char * context_json_utf8) { return crepus_session_apply_context_patch_json(session, context_json_utf8); }
+int32_t eq_crepuscularity_abi_crepus_session_animate_json(CrepusSession * session, const char * animation_json_utf8) { return crepus_session_animate_json(session, animation_json_utf8); }
+int32_t eq_crepuscularity_abi_crepus_session_tick_animations(CrepusSession * session, uint64_t now_ms, int32_t reduced_motion) { return crepus_session_tick_animations(session, now_ms, reduced_motion); }
 int32_t eq_crepuscularity_abi_crepus_session_set_event_callback(CrepusSession * session, CrepusEventCallback callback, void * userdata) { return crepus_session_set_event_callback(session, callback, userdata); }
 char * eq_crepuscularity_abi_crepus_session_render_ir_json(CrepusSession * session) { return crepus_session_render_ir_json(session); }
 char * eq_crepuscularity_abi_crepus_session_dispatch_event_json(CrepusSession * session, const char * event_json_utf8) { return crepus_session_dispatch_event_json(session, event_json_utf8); }

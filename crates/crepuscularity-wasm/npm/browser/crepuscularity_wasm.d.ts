@@ -2,6 +2,22 @@
 /* eslint-disable */
 
 /**
+ * The shared Rust engine for browser, extension and worker frame loops.
+ */
+export class MotionValue {
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * Milliseconds use the same time origin as subsequent tick calls (performance.now()).
+     */
+    animateTo(target: number, duration_ms: number, easing: string, now_ms: number, reduced_motion: boolean): number;
+    cancel(): number;
+    constructor(value: number);
+    tick(now_ms: number, reduced_motion: boolean): number;
+    readonly active: boolean;
+}
+
+/**
  * Schema version of the IR this module emits; consumers should check it.
  */
 export function ir_version(): number;
@@ -28,7 +44,13 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly __wbg_motionvalue_free: (a: number, b: number) => void;
     readonly ir_version: () => number;
+    readonly motionvalue_active: (a: number) => number;
+    readonly motionvalue_animateTo: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
+    readonly motionvalue_cancel: (a: number) => number;
+    readonly motionvalue_new: (a: number, b: number) => void;
+    readonly motionvalue_tick: (a: number, b: number, c: number, d: number) => void;
     readonly parse_crepus_json: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly parse_template_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
     readonly __wbindgen_add_to_stack_pointer: (a: number) => number;

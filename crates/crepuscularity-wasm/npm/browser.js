@@ -39,6 +39,11 @@ var parser;
 function loadParser(wasmUrl = new URL("./browser/crepuscularity_wasm_bg.wasm", import.meta.url)) {
   return parser ??= init({ module_or_path: wasmUrl }).then(() => createParser(bindings));
 }
+async function loadMotionValue(wasmUrl) {
+  await loadParser(wasmUrl);
+  return bindings.MotionValue;
+}
 export {
+  loadMotionValue,
   loadParser
 };
