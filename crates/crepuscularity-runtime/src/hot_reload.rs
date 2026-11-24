@@ -769,7 +769,15 @@ mod target_and_snapshot_tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("view.crepus");
         std::fs::write(&path, "div #entry").unwrap();
-        let state = cx.new(|cx| HotReloadState::new_with_context_loader(path, counted_context, cx));
+        let state = cx.new(|cx| {
+            let mut state =
+                HotReloadState::new_with_context_loader(path.clone(), counted_context, cx);
+            // Isolate structural refresh from late native notifications; the include
+            // notification test below retains real watcher coverage.
+            state._watcher = Some(Box::new(notify::NullWatcher));
+            state.watcher_path = Some(path);
+            state
+        });
         cx.run_until_parked();
         let manual =
             Arc::new(crepuscularity_core::parse_template("include virtual.crepus").unwrap());
