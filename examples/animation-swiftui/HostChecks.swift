@@ -14,14 +14,27 @@ struct HostChecks {
         waitUntil { host!.frames > count && (host!.height > 0 || !host!.active) }
         if host!.active {
             precondition(host!.height > 0 && host!.height < 112)
-            let intermediate = host!.height
+            let intermediate = host!.lastSample!
             host!.toggle()
-            precondition(host!.height >= intermediate && host!.height <= 112)
-            let reversed = host!.height
-            count = host!.frames
-            waitUntil { host!.frames > count && (host!.height < reversed || !host!.active) }
-            precondition(host!.height >= 0 && host!.height < reversed)
-            print("PASS display-link intermediate and reversed frames")
+            let reversed = host!.lastSample!
+            // Use the timestamps of the rendered samples, not time spent waiting
+            // for callbacks. Both curves have slope <= 2; allow Float IR rounding.
+            let elapsedMs = Double(reversed.timeMs - intermediate.timeMs)
+            precondition(abs(reversed.height - intermediate.height) <= 112 * 2 * elapsedMs / 2_000 + 0.0001)
+            if host!.active {
+                precondition(reversed.height > 0 && reversed.height <= 112)
+                count = host!.frames
+                waitUntil { host!.frames > count && (host!.height < reversed.height || !host!.active) }
+                precondition(host!.height >= 0 && host!.height < reversed.height)
+                if reversed.height == 112 {
+                    print("Opening completed before retarget sample; PASS observed closing frame")
+                } else {
+                    print("PASS display-link intermediate and reversed frames")
+                }
+            } else {
+                precondition(reversed.height == 0)
+                print("Retarget sample completed closing after a delay; deterministic ABI checks cover midflight reversal")
+            }
         } else {
             precondition(host!.height == 112)
             print("Display-link delay completed motion before an intermediate sample; deterministic engine tests cover interpolation")
