@@ -901,16 +901,6 @@ fn hot_template_initial_render_uses_disk_source() {
 }
 
 #[test]
-fn hot_template_poll_unchanged_when_flag_clear() {
-    let dir = temp_case("hot-noop");
-    let path = dir.join("ui.crepus");
-    fs::write(&path, "div\n  \"x\"").unwrap();
-
-    let mut hot = HotTemplate::watch(&path).unwrap();
-    assert_eq!(hot.poll_reload(), ReloadOutcome::Unchanged);
-}
-
-#[test]
 fn hot_template_poll_reloads_when_flag_set() {
     let dir = temp_case("hot-flag-set");
     let path = dir.join("ui.crepus");

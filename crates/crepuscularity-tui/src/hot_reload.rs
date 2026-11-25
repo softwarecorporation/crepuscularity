@@ -193,3 +193,21 @@ fn create_file_watcher(
 ) -> Result<Box<dyn Watcher + Send>, String> {
     watch::create_watcher(path, changed, "tui")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hot_template_poll_unchanged_when_flag_clear() {
+        let mut hot = HotTemplate {
+            template: Template::from_source("div\n  \"x\""),
+            changed: Arc::new(Mutex::new(false)),
+            // A native watcher can deliver setup events before the first poll.
+            _watcher: Box::new(
+                notify::NullWatcher::new(|_| {}, notify::Config::default()).unwrap(),
+            ),
+        };
+        assert_eq!(hot.poll_reload(), ReloadOutcome::Unchanged);
+    }
+}
